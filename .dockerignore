@@ -1,0 +1,39 @@
+# ============================================================
+# mission-control .dockerignore
+# ============================================================
+
+# Dependencies (rebuilt inside Docker)
+node_modules
+npm-debug.log*
+
+# Next.js build output
+.next
+out
+build
+
+# Env files (injected at runtime via docker-compose env_file)
+.env
+.env.local
+.env.*.local
+
+# Operational data (mounted as volume or named volume)
+data/*.json
+data/*.db
+data/*.sqlite
+data/*.sqlite3
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Docs / design files
+docs/
+design/
+*.md
+!README.md
+
+# Misc
+.DS_Store
+Thumbs.db
+*.bak
