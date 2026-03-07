@@ -1,18 +1,9 @@
-name: Docker Image CI
-
-on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
-
+# This file intentionally left disabled.
+# Real workflow is in docker-publish.yml
+name: _disabled
+on: workflow_dispatch
 jobs:
-
-  build:
-
+  noop:
     runs-on: ubuntu-latest
-
     steps:
-    - uses: actions/checkout@v4
-    - name: Build the Docker image
-      run: docker build . --file Dockerfile --tag my-image-name:$(date +%s)
+      - run: echo "disabled"
