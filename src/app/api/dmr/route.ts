@@ -1,44 +1,88 @@
-/**
- * src/app/api/dmr/route.ts
- *
- * GET  /api/dmr  → return current DMR status (from cache or fresh probe)
- * POST /api/dmr  → force re-provision (clears cache, re-probes, patches openclaw.json)
- */
+// src/app/api/dmr/endpoints/route.ts
+// CRUD for DMR endpoints — stored in Supabase, no env vars needed
 
-import { NextResponse } from 'next/server';
-import { provision, dmrStatusCache, getDMRConfig, createDMRConfigSignature } from '@/lib/dmr/dmrProvisioner';
+import { createClient } from "@supabase/supabase-js";
+import { NextResponse } from "next/server";
 
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
+// GET — list all endpoints + probe each one live
 export async function GET() {
-  try {
-    const { baseUrl, engineSuffix } = getDMRConfig();
-    const signature = createDMRConfigSignature(baseUrl, engineSuffix);
+  const { data, error } = await supabase
+    .from("dmr_endpoints")
+    .select("*")
+    .order("created_at");
 
-    // Return cached status if available — fast path, mirrors verifyIntegration cache check
-    const cached = dmrStatusCache.get(signature);
-    if (cached) {
-      return NextResponse.json({ ...cached, fromCache: true });
-    }
-
-    // No cache — run a fresh probe (read-only, no patch)
-    const status = await provision({ force: false });
-    return NextResponse.json({ ...status, fromCache: false });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error('[api/dmr] GET error:', message);
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json(data);
 }
 
-export async function POST() {
-  try {
-    // Force re-provision: clear cache, re-probe, patch openclaw.json
-    // Mirrors retryIntegration → clearCachedStatus → setupDockerModelRunnerIntegration
-    dmrStatusCache.clear();
-    const status = await provision({ force: true });
-    return NextResponse.json({ ...status, fromCache: false });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error('[api/dmr] POST error:', message);
-    return NextResponse.json({ error: message }, { status: 500 });
+// POST — add new endpoint
+export async function POST(req: Request) {
+  const body = await req.json();
+  const { name, base_url, api_key = "local-dmr", is_primary = false } = body;
+
+  if (!name || !base_url) {
+    return NextResponse.json({ error: "name and base_url required" }, { status: 400 });
   }
+
+  // If setting as primary, clear existing primary first
+  if (is_primary) {
+    await supabase
+      .from("dmr_endpoints")
+      .update({ is_primary: false })
+      .eq("is_primary", true);
+  }
+
+  const { data, error } = await supabase
+    .from("dmr_endpoints")
+    .insert({ name, base_url, api_key, is_primary })
+    .select()
+    .single();
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json(data);
+}
+
+// PATCH — update endpoint (toggle active, set primary, update URL)
+export async function PATCH(req: Request) {
+  const body = await req.json();
+  const { id, ...updates } = body;
+
+  if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
+
+  // If setting as primary, clear existing primary first
+  if (updates.is_primary) {
+    await supabase
+      .from("dmr_endpoints")
+      .update({ is_primary: false })
+      .eq("is_primary", true);
+  }
+
+  const { data, error } = await supabase
+    .from("dmr_endpoints")
+    .update({ ...updates, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json(data);
+}
+
+// DELETE — remove endpoint
+export async function DELETE(req: Request) {
+  const { id } = await req.json();
+  if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
+
+  const { error } = await supabase
+    .from("dmr_endpoints")
+    .delete()
+    .eq("id", id);
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ ok: true });
 }

@@ -5,6 +5,7 @@ import { Settings, RefreshCw } from "lucide-react";
 import { SystemInfo } from "@/components/SystemInfo";
 import { IntegrationStatus } from "@/components/IntegrationStatus";
 import { QuickActions } from "@/components/QuickActions";
+import { DMRCard } from "@/components/DMRCard";
 
 interface SystemData {
   agent: {
@@ -70,7 +71,7 @@ export default function SettingsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 md:mb-8">
         <div>
-          <h1 
+          <h1
             className="text-2xl md:text-3xl font-bold mb-1 md:mb-2 flex items-center gap-2 md:gap-3"
             style={{ color: "var(--text-primary)", fontFamily: "var(--font-heading)" }}
           >
@@ -86,8 +87,8 @@ export default function SettingsPage() {
           onClick={handleRefresh}
           disabled={loading}
           className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg transition-colors disabled:opacity-50 w-full sm:w-auto"
-          style={{ 
-            backgroundColor: "var(--card)", 
+          style={{
+            backgroundColor: "var(--card)",
             color: "var(--text-secondary)",
             border: "1px solid var(--border)"
           }}
@@ -106,7 +107,8 @@ export default function SettingsPage() {
 
       {/* Grid Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
-        {/* System Info - Full width on first row */}
+
+        {/* System Info - Full width */}
         <div className="lg:col-span-2">
           <SystemInfo data={systemData} />
         </div>
@@ -120,14 +122,20 @@ export default function SettingsPage() {
         <div>
           <QuickActions onActionComplete={handleRefresh} />
         </div>
+
+        {/* DMR Endpoints — full width */}
+        <div className="lg:col-span-2">
+          <DMRCard />
+        </div>
+
       </div>
 
-      {/* Footer Info */}
-      <div 
+      {/* Footer */}
+      <div
         className="mt-6 md:mt-8 p-3 md:p-4 rounded-xl"
-        style={{ 
-          backgroundColor: "rgba(26, 26, 26, 0.5)", 
-          border: "1px solid var(--border)" 
+        style={{
+          backgroundColor: "rgba(26, 26, 26, 0.5)",
+          border: "1px solid var(--border)"
         }}
       >
         <div className="flex items-center justify-between text-sm" style={{ color: "var(--text-muted)" }}>
