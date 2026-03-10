@@ -1,13 +1,16 @@
 import type { Metadata } from "next";
 import { Inter, Sora, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import { cn } from "@/lib/utils";
+import { Providers } from "./provider";
+import ClientLayout from "@/components/ClientLayout";
 
-const inter = Inter({ 
+const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
 });
 
-const sora = Sora({ 
+const sora = Sora({
   subsets: ["latin"],
   variable: "--font-sora",
   weight: ["400", "500", "600", "700"],
@@ -19,38 +22,42 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Mission Control - OpenClaw",
-  description: "Your OpenClaw agent dashboard",
+  title: "Mission Control",
+  description: "OpenClaw agent dashboard",
   manifest: "/manifest.json",
-  themeColor: "#1a1a2e",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "black-translucent",
-  },
-  icons: {
-    apple: "/apple-touch-icon.png",
-  },
+  icons: { apple: "/apple-touch-icon.png" },
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{__html:`if("serviceWorker"in navigator)navigator.serviceWorker.register("/sw.js")`}} />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="theme-color" content="#0E0B09" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `if("serviceWorker"in navigator)navigator.serviceWorker.register("/sw.js")`,
+          }}
+        />
       </head>
-      <body 
-        className={`${inter.variable} ${sora.variable} ${jetbrainsMono.variable} font-sans`}
-        style={{ 
-          backgroundColor: 'var(--background)', 
-          color: 'var(--foreground)',
-          fontFamily: 'var(--font-body)'
+      <body
+        className={cn(
+          inter.variable,
+          sora.variable,
+          jetbrainsMono.variable,
+          "min-h-screen"
+        )}
+        style={{
+          backgroundColor: "var(--background)",
+          color: "var(--foreground)",
+          fontFamily: "var(--font-body)",
         }}
+        suppressHydrationWarning
       >
-        {children}
+        <Providers>
+          <ClientLayout>{children}</ClientLayout>
+        </Providers>
       </body>
     </html>
   );

@@ -1,88 +1,120 @@
-// src/app/api/dmr/endpoints/route.ts
-// CRUD for DMR endpoints — stored in Supabase, no env vars needed
+// src/app/api/dmr/route.ts
 
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+function getSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
 
-// GET — list all endpoints + probe each one live
 export async function GET() {
-  const { data, error } = await supabase
+  const supabase = getSupabase();
+
+  const { data: endpoint, error } = await supabase
     .from("dmr_endpoints")
     .select("*")
-    .order("created_at");
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(data);
-}
-
-// POST — add new endpoint
-export async function POST(req: Request) {
-  const body = await req.json();
-  const { name, base_url, api_key = "local-dmr", is_primary = false } = body;
-
-  if (!name || !base_url) {
-    return NextResponse.json({ error: "name and base_url required" }, { status: 400 });
-  }
-
-  // If setting as primary, clear existing primary first
-  if (is_primary) {
-    await supabase
-      .from("dmr_endpoints")
-      .update({ is_primary: false })
-      .eq("is_primary", true);
-  }
-
-  const { data, error } = await supabase
-    .from("dmr_endpoints")
-    .insert({ name, base_url, api_key, is_primary })
-    .select()
+    .eq("is_primary", true)
+    .eq("is_active", true)
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(data);
-}
-
-// PATCH — update endpoint (toggle active, set primary, update URL)
-export async function PATCH(req: Request) {
-  const body = await req.json();
-  const { id, ...updates } = body;
-
-  if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
-
-  // If setting as primary, clear existing primary first
-  if (updates.is_primary) {
-    await supabase
-      .from("dmr_endpoints")
-      .update({ is_primary: false })
-      .eq("is_primary", true);
+  if (error || !endpoint) {
+    return NextResponse.json({
+      reachable: false,
+      models: [],
+      modelCount: 0,
+      error: "No primary DMR endpoint configured",
+      lastChecked: new Date().toISOString(),
+    });
   }
 
-  const { data, error } = await supabase
-    .from("dmr_endpoints")
-    .update({ ...updates, updated_at: new Date().toISOString() })
-    .eq("id", id)
-    .select()
-    .single();
+  const url = `${endpoint.base_url}/engines/v1/models`;
+  let reachable = false;
+  let models: string[] = [];
+  let probeError = null;
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(data);
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    if (res.ok) {
+      const json = await res.json();
+      models = (json?.data ?? []).map((m: any) => m.id);
+      reachable = true;
+    } else {
+      probeError = `HTTP ${res.status}`;
+    }
+  } catch (e: any) {
+    probeError = e.message;
+  }
+
+  await supabase
+    .from("dmr_endpoints")
+    .update({
+      last_status: reachable ? "healthy" : "unreachable",
+      last_checked_at: new Date().toISOString(),
+      model_count: models.length,
+      models,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", endpoint.id);
+
+  return NextResponse.json({
+    reachable,
+    models,
+    modelCount: models.length,
+    lastChecked: new Date().toISOString(),
+    dmrBaseUrl: endpoint.base_url,
+    engineSuffix: "/engines/v1",
+    error: probeError,
+    patched: false,
+    primaryModel: models[0] ?? null,
+    fromCache: false,
+    endpointName: endpoint.name,
+  });
 }
 
-// DELETE — remove endpoint
-export async function DELETE(req: Request) {
-  const { id } = await req.json();
-  if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
+export async function POST() {
+  const supabase = getSupabase();
 
-  const { error } = await supabase
+  const { data: endpoints } = await supabase
     .from("dmr_endpoints")
-    .delete()
-    .eq("id", id);
+    .select("*")
+    .eq("is_active", true);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ ok: true });
+  if (!endpoints?.length) {
+    return NextResponse.json({ ok: false, error: "No active endpoints" });
+  }
+
+  const results = await Promise.all(
+    endpoints.map(async (ep) => {
+      const url = `${ep.base_url}/engines/v1/models`;
+      let reachable = false;
+      let models: string[] = [];
+
+      try {
+        const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+        if (res.ok) {
+          const json = await res.json();
+          models = (json?.data ?? []).map((m: any) => m.id);
+          reachable = true;
+        }
+      } catch {}
+
+      await supabase
+        .from("dmr_endpoints")
+        .update({
+          last_status: reachable ? "healthy" : "unreachable",
+          last_checked_at: new Date().toISOString(),
+          model_count: models.length,
+          models,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", ep.id);
+
+      return { name: ep.name, reachable, modelCount: models.length };
+    })
+  );
+
+  return NextResponse.json({ ok: true, results });
 }

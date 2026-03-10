@@ -4,11 +4,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
 export async function POST(req: Request) {
   const { id, base_url } = await req.json();
 
@@ -33,6 +28,12 @@ export async function POST(req: Request) {
 
   // Update status in DB if id provided
   if (id) {
+    // Initialize inside handler so build doesn't crash without env vars
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
     await supabase
       .from("dmr_endpoints")
       .update({
