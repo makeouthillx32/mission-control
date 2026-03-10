@@ -6,21 +6,23 @@ import {
   useEffect,
   useState,
   useCallback,
+  useRef,
 } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import type { Session } from "@supabase/supabase-js";
 import { setCookie, getCookie } from "@/lib/cookieUtils";
-import { defaultThemeId, themeMap } from "@/themes";
+import { defaultThemeId, getThemeById, getAvailableThemeIds } from "@/themes";
 import type { Theme } from "@/types/theme";
 
 // ─── Theme Context ────────────────────────────────────────
 
 interface ThemeContextType {
   themeId: string;
-  setThemeId: (id: string) => void;
+  setThemeId: (id: string) => Promise<void>;
   themeType: "light" | "dark";
   toggleTheme: () => void;
-  getTheme: () => Theme;
+  getTheme: (id?: string) => Promise<Theme | null>;
+  availableThemes: string[];
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -47,19 +49,33 @@ export function useAuth() {
 // ─── Providers ────────────────────────────────────────────
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  // ── Theme ──────────────────────────────────────────────
+  // ── Theme state ────────────────────────────────────────
   const [themeId, setThemeIdState] = useState<string>(defaultThemeId);
   const [themeType, setThemeType] = useState<"light" | "dark">("dark");
+  const [availableThemes, setAvailableThemes] = useState<string[]>([]);
   const [mounted, setMounted] = useState(false);
 
-  const getTheme = useCallback((): Theme => {
-    return themeMap[themeId] || themeMap[defaultThemeId];
+  const getTheme = useCallback(async (id?: string): Promise<Theme | null> => {
+    const targetId = id || themeId;
+    try {
+      const theme = await getThemeById(targetId);
+      if (!theme) return await getThemeById(defaultThemeId);
+      return theme;
+    } catch {
+      return await getThemeById(defaultThemeId);
+    }
   }, [themeId]);
 
-  const setThemeId = useCallback((id: string) => {
-    if (themeMap[id]) {
-      setThemeIdState(id);
-      setCookie("themeId", id, { path: "/", maxAge: 31536000 });
+  const setThemeId = useCallback(async (id: string) => {
+    try {
+      const theme = await getThemeById(id);
+      if (theme) {
+        setThemeIdState(id);
+        localStorage.setItem("themeId", id);
+        setCookie("themeId", id, { path: "/", maxAge: 31536000 });
+      }
+    } catch (e) {
+      console.error("Error setting theme:", e);
     }
   }, []);
 
@@ -67,47 +83,57 @@ export function Providers({ children }: { children: React.ReactNode }) {
     setThemeType((prev) => {
       const next = prev === "light" ? "dark" : "light";
       setCookie("themeType", next, { path: "/", maxAge: 31536000 });
+      localStorage.setItem("themeType", next);
       return next;
     });
+  }, []);
+
+  // Load available themes from DB on mount
+  useEffect(() => {
+    getAvailableThemeIds()
+      .then(setAvailableThemes)
+      .catch(() => setAvailableThemes([defaultThemeId]));
   }, []);
 
   // Hydrate saved preferences on mount
   useEffect(() => {
     setMounted(true);
 
-    const savedId = getCookie("themeId") || localStorage.getItem("themeId");
-    if (savedId && themeMap[savedId]) setThemeIdState(savedId);
+    const savedId = localStorage.getItem("themeId") || getCookie("themeId");
+    if (savedId) {
+      getThemeById(savedId).then((t) => {
+        if (t) setThemeIdState(savedId);
+      });
+    }
 
-    const savedType = getCookie("themeType") || localStorage.getItem("themeType");
+    const savedType = localStorage.getItem("themeType") || getCookie("themeType");
     if (savedType === "light" || savedType === "dark") {
       setThemeType(savedType);
     } else {
-      // Default to dark for Mission Control; fall back to system pref
-      const systemPrefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-      setThemeType(systemPrefersDark ? "dark" : "light");
+      const systemDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+      setThemeType(systemDark ? "dark" : "light");
     }
   }, []);
 
-  // Apply CSS variables + class to <html> whenever theme or mode changes
+  // Apply CSS variables + class to <html> on theme or mode change
   useEffect(() => {
-    if (!mounted) return;
+    if (!mounted || availableThemes.length === 0) return;
 
-    const html = document.documentElement;
-    const theme = getTheme();
-    const variables = themeType === "dark" ? theme.dark : theme.light;
+    getTheme().then((theme) => {
+      if (!theme) return;
+      const html = document.documentElement;
+      const variables = themeType === "dark" ? theme.dark : theme.light;
 
-    for (const [key, value] of Object.entries(variables)) {
-      html.style.setProperty(key, value);
-    }
+      for (const [key, value] of Object.entries(variables)) {
+        html.style.setProperty(key, value);
+      }
 
-    html.classList.remove("light", "dark");
-    html.classList.add(themeType);
+      html.classList.remove("light", "dark");
+      html.classList.add(themeType);
+    });
+  }, [themeId, themeType, mounted, availableThemes, getTheme]);
 
-    localStorage.setItem("themeId", themeId);
-    localStorage.setItem("themeType", themeType);
-  }, [themeId, themeType, mounted, getTheme]);
-
-  // ── Auth ───────────────────────────────────────────────
+  // ── Auth state ─────────────────────────────────────────
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -132,7 +158,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   // ── Render ─────────────────────────────────────────────
   return (
     <ThemeContext.Provider
-      value={{ themeId, setThemeId, themeType, toggleTheme, getTheme }}
+      value={{ themeId, setThemeId, themeType, toggleTheme, getTheme, availableThemes }}
     >
       <AuthContext.Provider value={{ session, loading }}>
         {children}
