@@ -20,6 +20,13 @@ async function isAuthenticated(request: NextRequest): Promise<boolean> {
   return token.startsWith(`mc-${version}-`);
 }
 
+function noCache(response: NextResponse): NextResponse {
+  response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  response.headers.set("Pragma", "no-cache");
+  response.headers.set("Expires", "0");
+  return response;
+}
+
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -38,7 +45,8 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  return supabaseMiddleware(request);
+  const response = await supabaseMiddleware(request);
+  return noCache(response);
 }
 
 export const config = {
