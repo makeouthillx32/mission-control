@@ -1,6 +1,7 @@
 "use client";
 
 import { Dock, TopBar, StatusBar } from "@/components/TenacitOS";
+import AccessibilityOverlay from "@/components/Layouts/overlays/accessibility/accessibility";
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -23,6 +24,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       </main>
 
       <StatusBar />
+
+      {/* Full DCG theme + accessibility overlay — light/dark + theme presets */}
+      <AccessibilityOverlay />
     </div>
   );
 }

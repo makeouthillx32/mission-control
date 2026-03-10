@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { createHash } from "crypto";
 
 // Routes that never require authentication
 const PUBLIC_ROUTES = new Set(["/login"]);
@@ -7,9 +8,18 @@ const PUBLIC_ROUTES = new Set(["/login"]);
 // API routes that are always public (auth endpoints + health check)
 const PUBLIC_API_PREFIXES = ["/api/auth/", "/api/health"];
 
+// Derive a version stamp from AUTH_SECRET so any secret rotation
+// automatically invalidates all existing sessions — no manual cookie clearing needed.
+function getSessionVersion(): string {
+  const secret = process.env.AUTH_SECRET || "";
+  return createHash("sha256").update(secret).digest("hex").slice(0, 8);
+}
+
 function isAuthenticated(request: NextRequest): boolean {
-  const authCookie = request.cookies.get("mc_auth");
-  return !!(authCookie && authCookie.value === process.env.AUTH_SECRET);
+  const token = request.cookies.get("mc_auth")?.value;
+  if (!token) return false;
+  // Token must start with the current version stamp
+  return token.startsWith(`mc-${getSessionVersion()}-`);
 }
 
 export function middleware(request: NextRequest) {

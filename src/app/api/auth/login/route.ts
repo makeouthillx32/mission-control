@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { createHash } from "crypto";
 
 // Simple in-memory rate limiter (per-IP, resets on server restart)
-// Sufficient for a personal dashboard — no external dependency needed
 const MAX_ATTEMPTS = 5;
 const WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 const LOCKOUT_MS = 15 * 60 * 1000; // 15 minute lockout after max attempts
@@ -27,24 +27,18 @@ function checkRateLimit(ip: string): { allowed: boolean; retryAfterMs?: number }
   const now = Date.now();
   const record = attempts.get(ip);
 
-  if (!record) {
-    return { allowed: true };
-  }
+  if (!record) return { allowed: true };
 
-  // Still locked out?
   if (record.lockedUntil && now < record.lockedUntil) {
     return { allowed: false, retryAfterMs: record.lockedUntil - now };
   }
 
-  // Window expired — reset
   if (now - record.windowStart > WINDOW_MS) {
     attempts.delete(ip);
     return { allowed: true };
   }
 
-  // Within window, check count
   if (record.count >= MAX_ATTEMPTS) {
-    // Lock out
     record.lockedUntil = now + LOCKOUT_MS;
     attempts.set(ip, record);
     return { allowed: false, retryAfterMs: LOCKOUT_MS };
@@ -69,6 +63,17 @@ function clearAttempts(ip: string): void {
   attempts.delete(ip);
 }
 
+// Versioned token — encodes a hash of AUTH_SECRET so rotating the secret
+// auto-invalidates all existing sessions without touching the browser.
+function getSessionVersion(): string {
+  const secret = process.env.AUTH_SECRET || "";
+  return createHash("sha256").update(secret).digest("hex").slice(0, 8);
+}
+
+function makeToken(): string {
+  return `mc-${getSessionVersion()}-${Date.now()}`;
+}
+
 export async function POST(request: NextRequest) {
   const ip = getClientIp(request);
 
@@ -88,13 +93,11 @@ export async function POST(request: NextRequest) {
   const { password } = await request.json();
 
   if (password === process.env.ADMIN_PASSWORD) {
-    clearAttempts(ip); // Reset on success
+    clearAttempts(ip);
 
     const response = NextResponse.json({ success: true });
 
-    // Set auth cookie (7 days expiry)
-    // secure=true in production (HTTPS), false in dev (HTTP localhost)
-    response.cookies.set("mc_auth", process.env.AUTH_SECRET!, {
+    response.cookies.set("mc_auth", makeToken(), {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
@@ -105,7 +108,6 @@ export async function POST(request: NextRequest) {
     return response;
   }
 
-  // Record failed attempt
   recordFailure(ip);
 
   return NextResponse.json(
