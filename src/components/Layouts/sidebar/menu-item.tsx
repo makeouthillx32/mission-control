@@ -1,62 +1,80 @@
-import { cn } from "@/lib/utils";
-import { cva } from "class-variance-authority";
+"use client";
+
 import Link from "next/link";
-import { useSidebarContext } from "./sidebar-context";
+import type { LucideIcon } from "lucide-react";
 
-const menuItemBaseStyles = cva(
-  "rounded-lg px-3.5 font-medium text-dark-4 transition-all duration-200 dark:text-dark-6",
-  {
-    variants: {
-      isActive: {
-        true: "bg-[rgba(87,80,241,0.07)] text-primary hover:bg-[rgba(87,80,241,0.07)] dark:bg-[#FFFFFF1A] dark:text-white",
-        false:
-          "hover:bg-gray-100 hover:text-dark hover:dark:bg-[#FFFFFF1A] hover:dark:text-white",
-      },
-    },
-    defaultVariants: {
-      isActive: false,
-    },
-  },
-);
+interface DockItemProps {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  isActive: boolean;
+}
 
-export function MenuItem(
-  props: {
-    className?: string;
-    children: React.ReactNode;
-    isActive: boolean;
-  } & ({ as?: "button"; onClick: () => void } | { as: "link"; href: string }),
-) {
-  const { toggleSidebar, isMobile } = useSidebarContext();
-
-  if (props.as === "link") {
-    return (
-      <Link
-        href={props.href}
-        // Close sidebar on clicking link if it's mobile
-        onClick={() => isMobile && toggleSidebar()}
-        className={cn(
-          menuItemBaseStyles({
-            isActive: props.isActive,
-            className: "relative block py-2",
-          }),
-          props.className,
-        )}
-      >
-        {props.children}
-      </Link>
-    );
-  }
-
+export function MenuItem({ href, label, icon: Icon, isActive }: DockItemProps) {
   return (
-    <button
-      onClick={props.onClick}
-      aria-expanded={props.isActive}
-      className={menuItemBaseStyles({
-        isActive: props.isActive,
-        className: "flex w-full items-center gap-3 py-3",
-      })}
+    <Link
+      href={href}
+      className="dock-item group relative"
+      style={{
+        width: "56px",
+        height: "56px",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: "4px",
+        borderRadius: "8px",
+        backgroundColor: isActive ? "var(--accent-soft)" : "transparent",
+        transition: "all 150ms ease",
+        textDecoration: "none",
+      }}
+      onMouseEnter={(e) => {
+        if (!isActive)
+          e.currentTarget.style.backgroundColor = "var(--surface-hover)";
+      }}
+      onMouseLeave={(e) => {
+        if (!isActive)
+          e.currentTarget.style.backgroundColor = "transparent";
+      }}
     >
-      {props.children}
-    </button>
+      <Icon
+        style={{
+          width: "22px",
+          height: "22px",
+          color: isActive ? "var(--accent)" : "var(--text-secondary)",
+          strokeWidth: isActive ? 2.5 : 2,
+        }}
+      />
+
+      <span
+        style={{
+          fontFamily: "var(--font-body)",
+          fontSize: "9px",
+          fontWeight: isActive ? 600 : 500,
+          color: isActive ? "var(--accent)" : "var(--text-muted)",
+          textAlign: "center",
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          maxWidth: "52px",
+        }}
+      >
+        {label.split(" ")[0]}
+      </span>
+
+      {/* Tooltip */}
+      <span
+        className="absolute left-[72px] top-1/2 -translate-y-1/2 px-3 py-2 rounded-lg whitespace-nowrap pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity z-50"
+        style={{
+          backgroundColor: "var(--surface-elevated)",
+          border: "1px solid var(--border)",
+          color: "var(--text-primary)",
+          fontSize: "12px",
+          fontWeight: 500,
+        }}
+      >
+        {label}
+      </span>
+    </Link>
   );
 }

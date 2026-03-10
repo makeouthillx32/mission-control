@@ -1,6 +1,7 @@
 "use client";
 
-import { Dock, TopBar, StatusBar } from "@/components/TenacitOS";
+import { Sidebar } from "@/components/Layouts/sidebar";
+import { TopBar, StatusBar } from "@/components/TenacitOS";
 import AccessibilityOverlay from "@/components/Layouts/overlays/accessibility/accessibility";
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
@@ -9,12 +10,12 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       className="tenacios-shell"
       style={{ minHeight: "100vh", backgroundColor: "var(--bg)" }}
     >
-      <Dock />
+      <Sidebar />
       <TopBar />
 
       <main
         style={{
-          marginLeft: "68px",   // dock width
+          marginLeft: "68px",   // sidebar width
           marginTop: "48px",    // top bar height
           marginBottom: "32px", // status bar height
           minHeight: "calc(100vh - 48px - 32px)",

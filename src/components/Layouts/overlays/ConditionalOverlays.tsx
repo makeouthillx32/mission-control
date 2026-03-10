@@ -3,8 +3,7 @@
 
 import { usePathname } from "next/navigation";
 import AccessibilityOverlay from "@/components/Layouts/overlays/accessibility/accessibility";
-import CartButton from "@/components/Layouts/overlays/cart/CartButton";
-import CartDrawer from "@/components/Layouts/overlays/cart/CartDrawer";
+
 
 export default function ConditionalOverlays() {
   const pathname = usePathname();
@@ -22,13 +21,13 @@ export default function ConditionalOverlays() {
   return (
     <>
       {/* 🛒 Cart Button - bottom left */}
-      <CartButton />
+      
       
       {/* ♿ Accessibility Overlay - bottom right */}
       <AccessibilityOverlay />
       
       {/* 🛒 Cart Drawer - slide-out panel */}
-      <CartDrawer />
+      
     </>
   );
 }
