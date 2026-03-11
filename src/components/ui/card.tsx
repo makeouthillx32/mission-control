@@ -1,92 +1,49 @@
-import * as React from "react";
+import { Card } from "@/components/ui/card";
 
-import { cn } from "@/lib/utils";
-
-function Card({ className, ...props }: React.ComponentProps<"div">) {
-	return (
-		<div
-			data-slot="card"
-			className={cn(
-				"flex flex-col gap-6 rounded-[var(--radius)] border border-[hsl(var(--border))] bg-[hsl(var(--card))] py-6 text-[hsl(var(--card-foreground))] shadow-[var(--shadow-sm)]",
-				className,
-			)}
-			{...props}
-		/>
-	);
-}
-
-function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
-	return (
-		<div
-			data-slot="card-header"
-			className={cn(
-				"@container/card-header grid auto-rows-min grid-rows-[auto_auto] items-start gap-1.5 px-6 has-data-[slot=card-action]:grid-cols-[1fr_auto] [.border-b]:pb-6",
-				className,
-			)}
-			{...props}
-		/>
-	);
-}
-
-function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
-	return (
-		<div
-			data-slot="card-title"
-			className={cn("font-semibold leading-none text-[hsl(var(--foreground))]", className)}
-			{...props}
-		/>
-	);
-}
-
-function CardDescription({ className, ...props }: React.ComponentProps<"div">) {
-	return (
-		<div
-			data-slot="card-description"
-			className={cn("text-[hsl(var(--muted-foreground))] text-sm", className)}
-			{...props}
-		/>
-	);
-}
-
-function CardAction({ className, ...props }: React.ComponentProps<"div">) {
-	return (
-		<div
-			data-slot="card-action"
-			className={cn(
-				"col-start-2 row-span-2 row-start-1 self-start justify-self-end",
-				className,
-			)}
-			{...props}
-		/>
-	);
-}
-
-function CardContent({ className, ...props }: React.ComponentProps<"div">) {
-	return (
-		<div
-			data-slot="card-content"
-			className={cn("px-6", className)}
-			{...props}
-		/>
-	);
-}
-
-function CardFooter({ className, ...props }: React.ComponentProps<"div">) {
-	return (
-		<div
-			data-slot="card-footer"
-			className={cn("flex items-center px-6 [.border-t]:pt-6", className)}
-			{...props}
-		/>
-	);
-}
-
-export {
-	Card,
-	CardHeader,
-	CardFooter,
-	CardTitle,
-	CardAction,
-	CardDescription,
-	CardContent,
+type ChartDataItem = {
+  total_messages?: number;
+  total_conversations?: number;
+  total_participants?: number;
+  average_messages_per_conversation?: number;
+  [key: string]: string | number | undefined;
 };
+
+interface GeneralMessageDataCardProps {
+  chartData?: ChartDataItem[];
+}
+
+export default function GeneralMessageDataCard({
+  chartData,
+}: GeneralMessageDataCardProps) {
+  const data = chartData?.[0] || {};
+
+  return (
+    <Card className="p-4">
+      <h3 className="mb-4 text-lg font-semibold">General Message Data</h3>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="rounded-lg border p-3">
+          <p className="text-sm text-muted-foreground">Total Messages</p>
+          <p className="text-2xl font-bold">{data.total_messages ?? 0}</p>
+        </div>
+
+        <div className="rounded-lg border p-3">
+          <p className="text-sm text-muted-foreground">Conversations</p>
+          <p className="text-2xl font-bold">{data.total_conversations ?? 0}</p>
+        </div>
+
+        <div className="rounded-lg border p-3">
+          <p className="text-sm text-muted-foreground">Participants</p>
+          <p className="text-2xl font-bold">{data.total_participants ?? 0}</p>
+        </div>
+
+        <div className="rounded-lg border p-3">
+          <p className="text-sm text-muted-foreground">Avg / Conversation</p>
+          <p className="text-2xl font-bold">
+            {data.average_messages_per_conversation ?? 0}
+          </p>
+        </div>
+      </div>
+    </Card>
+  );
+}
