@@ -1,34 +1,30 @@
 // src/components/ClientLayout.tsx
-
 "use client";
 
 import { Sidebar } from "@/components/Layouts/sidebar";
+import { SidebarProvider } from "@/components/Layouts/sidebar/sidebar-context";
 import { TopBar } from "@/components/Layouts/dashboard";
 import { StatusBar } from "@/components/TenacitOS";
 import AccessibilityOverlay from "@/components/Layouts/overlays/accessibility/accessibility";
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div
-      className="tenacios-shell"
-      style={{ minHeight: "100vh", backgroundColor: "var(--bg)" }}
-    >
-      <Sidebar />
-      <TopBar />
+    <SidebarProvider>
+      {/* Outer flex row: sidebar | main column */}
+      <div style={{ display: "flex", minHeight: "100vh", backgroundColor: "var(--bg)" }}>
+        <Sidebar />
 
-      <main
-        style={{
-          marginLeft: "68px",
-          marginTop: "48px",
-          marginBottom: "32px",
-          minHeight: "calc(100vh - 48px - 32px)",
-        }}
-      >
-        {children}
-      </main>
+        {/* Main column: topbar + content + statusbar */}
+        <div style={{ display: "flex", flexDirection: "column", flex: 1, minWidth: 0 }}>
+          <TopBar />
+          <main style={{ flex: 1, padding: "24px" }}>
+            {children}
+          </main>
+          <StatusBar />
+        </div>
+      </div>
 
-      <StatusBar />
       <AccessibilityOverlay />
-    </div>
+    </SidebarProvider>
   );
 }

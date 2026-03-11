@@ -3,7 +3,9 @@ import { useEffect, useState } from "react";
 export const MOBILE_BREAKPOINT = 850;
 
 export function useIsMobile() {
-  const [isMobile, setIsMobile] = useState<boolean>();
+  // Default true — assume mobile until we know screen width.
+  // This prevents the sidebar flashing open on mobile before the effect fires.
+  const [isMobile, setIsMobile] = useState<boolean>(true);
 
   useEffect(() => {
     const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`);
@@ -18,5 +20,5 @@ export function useIsMobile() {
     return () => mql.removeEventListener("change", onChange);
   }, []);
 
-  return !!isMobile;
+  return isMobile;
 }

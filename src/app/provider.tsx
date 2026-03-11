@@ -1,3 +1,5 @@
+// src/app/provider.tsx
+
 "use client";
 
 import {
@@ -6,21 +8,21 @@ import {
   useEffect,
   useState,
   useCallback,
-  useRef,
 } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import type { Session } from "@supabase/supabase-js";
 import { setCookie, getCookie } from "@/lib/cookieUtils";
 import { defaultThemeId, getThemeById, getAvailableThemeIds } from "@/themes";
 import type { Theme } from "@/types/theme";
+import { transitionTheme, smoothThemeToggle } from "@/utils/themeTransitions";
 
 // ─── Theme Context ────────────────────────────────────────
 
 interface ThemeContextType {
   themeId: string;
-  setThemeId: (id: string) => Promise<void>;
+  setThemeId: (id: string, element?: HTMLElement) => Promise<void>;
   themeType: "light" | "dark";
-  toggleTheme: () => void;
+  toggleTheme: (element?: HTMLElement) => Promise<void>;
   getTheme: (id?: string) => Promise<Theme | null>;
   availableThemes: string[];
 }
@@ -49,9 +51,12 @@ export function useAuth() {
 // ─── Providers ────────────────────────────────────────────
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  // ── Theme state ────────────────────────────────────────
+  // ── Theme state ───────────────────────────────────────
   const [themeId, setThemeIdState] = useState<string>(defaultThemeId);
-  const [themeType, setThemeType] = useState<"light" | "dark">("dark");
+
+  // "light" as interim default — provider overwrites immediately on mount
+  // from localStorage/cookie before first paint completes
+  const [themeType, setThemeType] = useState<"light" | "dark">("light");
   const [availableThemes, setAvailableThemes] = useState<string[]>([]);
   const [mounted, setMounted] = useState(false);
 
@@ -66,29 +71,47 @@ export function Providers({ children }: { children: React.ReactNode }) {
     }
   }, [themeId]);
 
-  const setThemeId = useCallback(async (id: string) => {
-    try {
-      const theme = await getThemeById(id);
-      if (theme) {
-        setThemeIdState(id);
-        localStorage.setItem("themeId", id);
-        setCookie("themeId", id, { path: "/", maxAge: 31536000 });
-      }
-    } catch (e) {
-      console.error("Error setting theme:", e);
+  // Wired to smoothThemeToggle (with element) or transitionTheme (no element)
+  const toggleTheme = useCallback(async (element?: HTMLElement) => {
+    const themeChangeCallback = () => {
+      setThemeType((prev) => {
+        const next = prev === "light" ? "dark" : "light";
+        // Write to BOTH keys so old and new code can read it
+        setCookie("theme", next, { path: "/", maxAge: 31536000 });
+        localStorage.setItem("theme", next);
+        return next;
+      });
+    };
+
+    if (element) {
+      await smoothThemeToggle(element, themeChangeCallback);
+    } else {
+      await transitionTheme(themeChangeCallback);
     }
   }, []);
 
-  const toggleTheme = useCallback(() => {
-    setThemeType((prev) => {
-      const next = prev === "light" ? "dark" : "light";
-      setCookie("themeType", next, { path: "/", maxAge: 31536000 });
-      localStorage.setItem("themeType", next);
-      return next;
-    });
+  const setThemeId = useCallback(async (id: string, element?: HTMLElement) => {
+    const themeChangeCallback = async () => {
+      try {
+        const theme = await getThemeById(id);
+        if (theme) {
+          setThemeIdState(id);
+          localStorage.setItem("themeId", id);
+          setCookie("themeId", id, { path: "/", maxAge: 31536000 });
+        }
+      } catch (e) {
+        console.error("Error setting theme:", e);
+      }
+    };
+
+    if (element) {
+      await smoothThemeToggle(element, themeChangeCallback);
+    } else {
+      await transitionTheme(themeChangeCallback);
+    }
   }, []);
 
-  // Load available themes from DB on mount
+  // Load available themes on mount
   useEffect(() => {
     getAvailableThemeIds()
       .then(setAvailableThemes)
@@ -96,6 +119,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Hydrate saved preferences on mount
+  // Reads "theme" key (not "themeType") to match what toggleTheme writes
   useEffect(() => {
     setMounted(true);
 
@@ -106,10 +130,15 @@ export function Providers({ children }: { children: React.ReactNode }) {
       });
     }
 
-    const savedType = localStorage.getItem("themeType") || getCookie("themeType");
+    // Read "theme" key — consistent with what toggleTheme saves
+    const savedType =
+      localStorage.getItem("theme") ||
+      getCookie("theme");
+
     if (savedType === "light" || savedType === "dark") {
       setThemeType(savedType);
     } else {
+      // No saved preference — fall back to system
       const systemDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
       setThemeType(systemDark ? "dark" : "light");
     }
@@ -133,7 +162,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     });
   }, [themeId, themeType, mounted, availableThemes, getTheme]);
 
-  // ── Auth state ─────────────────────────────────────────
+  // ── Auth state ────────────────────────────────────────
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -155,7 +184,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     return () => listener.subscription.unsubscribe();
   }, []);
 
-  // ── Render ─────────────────────────────────────────────
+  // ── Render ────────────────────────────────────────────
   return (
     <ThemeContext.Provider
       value={{ themeId, setThemeId, themeType, toggleTheme, getTheme, availableThemes }}

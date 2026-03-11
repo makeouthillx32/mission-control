@@ -1,57 +1,52 @@
+// src/components/Layouts/sidebar/menu-item.tsx
 "use client";
 
 import Link from "next/link";
-import type { LucideIcon } from "lucide-react";
 
-interface DockItemProps {
+interface MenuItemProps {
   href: string;
   label: string;
-  icon: LucideIcon;
+  icon: React.ComponentType<{ style?: React.CSSProperties }>;
   isActive: boolean;
+  onNavigate?: () => void;
 }
 
-export function MenuItem({ href, label, icon: Icon, isActive }: DockItemProps) {
+export function MenuItem({ href, label, icon: Icon, isActive, onNavigate }: MenuItemProps) {
   return (
     <Link
       href={href}
-      className="dock-item group relative"
+      onClick={onNavigate}
+      title={label}
+      className="group"
       style={{
-        width: "56px",
-        height: "56px",
+        position: "relative",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        gap: "4px",
+        width: "56px",
+        minHeight: "52px",
         borderRadius: "8px",
-        backgroundColor: isActive ? "var(--accent-soft)" : "transparent",
-        transition: "all 150ms ease",
+        gap: "3px",
         textDecoration: "none",
-      }}
-      onMouseEnter={(e) => {
-        if (!isActive)
-          e.currentTarget.style.backgroundColor = "var(--surface-hover)";
-      }}
-      onMouseLeave={(e) => {
-        if (!isActive)
-          e.currentTarget.style.backgroundColor = "transparent";
+        backgroundColor: isActive ? "var(--accent-soft)" : "transparent",
+        transition: "background-color 150ms ease",
       }}
     >
       <Icon
         style={{
-          width: "22px",
-          height: "22px",
-          color: isActive ? "var(--accent)" : "var(--text-secondary)",
+          width: "20px",
+          height: "20px",
+          color: isActive ? "hsl(var(--primary))" : "var(--text-muted)",
           strokeWidth: isActive ? 2.5 : 2,
         }}
       />
-
       <span
         style={{
           fontFamily: "var(--font-body)",
           fontSize: "9px",
           fontWeight: isActive ? 600 : 500,
-          color: isActive ? "var(--accent)" : "var(--text-muted)",
+          color: isActive ? "hsl(var(--primary))" : "var(--text-muted)",
           textAlign: "center",
           whiteSpace: "nowrap",
           overflow: "hidden",
@@ -62,16 +57,27 @@ export function MenuItem({ href, label, icon: Icon, isActive }: DockItemProps) {
         {label.split(" ")[0]}
       </span>
 
-      {/* Tooltip */}
+      {/* Hover tooltip */}
       <span
-        className="absolute left-[72px] top-1/2 -translate-y-1/2 px-3 py-2 rounded-lg whitespace-nowrap pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity z-50"
         style={{
-          backgroundColor: "var(--surface-elevated)",
-          border: "1px solid var(--border)",
-          color: "var(--text-primary)",
+          position: "absolute",
+          left: "72px",
+          top: "50%",
+          transform: "translateY(-50%)",
+          padding: "6px 12px",
+          borderRadius: "6px",
           fontSize: "12px",
           fontWeight: 500,
+          whiteSpace: "nowrap",
+          pointerEvents: "none",
+          opacity: 0,
+          backgroundColor: "var(--surface-elevated)",
+          border: "1px solid hsl(var(--border))",
+          color: "var(--text-primary)",
+          zIndex: 60,
+          transition: "opacity 150ms ease",
         }}
+        className="group-hover:opacity-100"
       >
         {label}
       </span>
