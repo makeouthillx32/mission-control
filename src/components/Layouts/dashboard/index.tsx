@@ -1,64 +1,173 @@
+// src/components/Layouts/dashboard/index.tsx
+
 "use client";
 
-import { SearchIcon } from "@/assets/icons";
-import Image from "next/image";
-import Link from "next/link";
-import { useSidebarContext } from "../sidebar/sidebar-context";
-import { MenuIcon } from "./icons";
-import { Notification } from "./notification";
-import { ThemeToggleSwitch } from "./theme-toggle";
-import SwitchtoDarkMode from "@/components/Layouts/SwitchtoDarkMode";
+import { useState, useEffect } from "react";
+import { Search } from "lucide-react";
+import { GlobalSearch } from "@/components/GlobalSearch";
+import { NotificationDropdown } from "@/components/NotificationDropdown";
 
-export function Header() {
-  const { toggleSidebar, isMobile } = useSidebarContext();
+export function TopBar() {
+  const [showSearch, setShowSearch] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setShowSearch(true);
+      }
+      if (e.key === "Escape" && showSearch) {
+        setShowSearch(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [showSearch]);
 
   return (
-    <header data-layout="dashboard" className="sticky top-0 z-30 flex items-center justify-between border-b border-[var(--lt-border)] bg-[var(--lt-bg)] px-4 py-5 shadow-[var(--lt-shadow)] md:px-5 2xl:px-10">
-      <button
-        onClick={toggleSidebar}
-        className="rounded-[var(--radius)] border border-[hsl(var(--border))] px-1.5 py-1 dark:border-[hsl(var(--sidebar-border))] dark:bg-[hsl(var(--background))] hover:dark:bg-[hsla(var(--background),0.1)] lg:hidden"
+    <>
+      <div
+        className="top-bar"
+        style={{
+          position: "fixed",
+          top: 0,
+          left: "68px",
+          right: 0,
+          height: "48px",
+          backgroundColor: "var(--surface)",
+          borderBottom: "1px solid var(--border)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "0 20px",
+          zIndex: 45,
+        }}
       >
-        <MenuIcon />
-        <span className="sr-only">Toggle Sidebar</span>
-      </button>
+        {/* Left: Logo & Title */}
+        <div className="flex items-center gap-3">
+          <span style={{ fontSize: "20px" }}>🦞</span>
+          <h1
+            style={{
+              fontFamily: "var(--font-heading)",
+              fontSize: "16px",
+              fontWeight: 700,
+              color: "var(--text-primary)",
+              letterSpacing: "-0.5px",
+            }}
+          >
+            TenacitOS
+          </h1>
+          <div
+            style={{
+              backgroundColor: "var(--accent-soft)",
+              borderRadius: "4px",
+              padding: "2px 8px",
+            }}
+          >
+            <span
+              style={{
+                fontFamily: "var(--font-body)",
+                fontSize: "9px",
+                fontWeight: 700,
+                color: "var(--accent)",
+                letterSpacing: "1px",
+              }}
+            >
+              v1.0
+            </span>
+          </div>
+        </div>
 
-      {isMobile && (
-        <Link href="/" className="ml-2 max-[430px]:hidden min-[375px]:ml-4">
-          <Image
-            src="/images/logo/logo-icon.svg"
-            width={50}
-            height={50}
-            alt="Logo"
-            role="presentation"
-          />
-        </Link>
+        {/* Right: Search + Notifications + User */}
+        <div className="flex items-center gap-3">
+          {/* Search Box */}
+          <button
+            onClick={() => setShowSearch(true)}
+            className="flex items-center gap-2 transition-all"
+            style={{
+              width: "240px",
+              height: "32px",
+              backgroundColor: "var(--surface-elevated)",
+              borderRadius: "6px",
+              padding: "0 12px",
+            }}
+          >
+            <Search
+              className="flex-shrink-0"
+              style={{
+                width: "16px",
+                height: "16px",
+                color: "var(--text-muted)",
+              }}
+            />
+            <span
+              style={{
+                fontFamily: "var(--font-body)",
+                fontSize: "12px",
+                color: "var(--text-muted)",
+              }}
+            >
+              Search... ⌘K
+            </span>
+          </button>
+
+          {/* Notifications */}
+          <NotificationDropdown />
+
+          {/* User Area */}
+          <div className="flex items-center gap-2">
+            <div
+              style={{
+                width: "28px",
+                height: "28px",
+                borderRadius: "14px",
+                backgroundColor: "var(--accent)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <span
+                style={{
+                  fontFamily: "var(--font-heading)",
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  color: "var(--text-primary)",
+                }}
+              >
+                C
+              </span>
+            </div>
+            <span
+              style={{
+                fontFamily: "var(--font-body)",
+                fontSize: "12px",
+                fontWeight: 500,
+                color: "var(--text-secondary)",
+              }}
+            >
+              Carlos
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Global Search Modal */}
+      {showSearch && (
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center pt-[20vh]"
+          style={{ backgroundColor: "rgba(0, 0, 0, 0.8)" }}
+          onClick={() => setShowSearch(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{ width: "90%", maxWidth: "42rem" }}
+          >
+            <GlobalSearch />
+          </div>
+        </div>
       )}
-
-      <div className="max-xl:hidden">
-        <h1 className="mb-0.5 text-heading-5 font-bold text-[hsl(var(--foreground))] dark:text-[hsl(var(--card-foreground))]">
-          Dashboard
-        </h1>
-        <p className="font-medium text-[hsl(var(--muted-foreground))] dark:text-[hsl(var(--muted-foreground))]">
-          Byrd's Dashboard
-        </p>
-      </div>
-
-      <div className="flex flex-1 items-center justify-end gap-2 min-[375px]:gap-4">
-        <div className="relative w-full max-w-[300px]">
-          <input
-            type="search"
-            placeholder="Search"
-            className="flex w-full items-center gap-3.5 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--muted))] py-3 pl-[53px] pr-5 outline-none transition-colors focus-visible:border-[hsl(var(--sidebar-primary))] dark:border-[hsl(var(--border))] dark:bg-[hsl(var(--secondary))] dark:hover:border-[hsl(var(--border))] dark:hover:bg-[hsl(var(--secondary))] dark:hover:text-[hsl(var(--muted-foreground))] dark:focus-visible:border-[hsl(var(--sidebar-primary))]"
-          />
-          <SearchIcon className="pointer-events-none absolute left-5 top-1/2 -translate-y-1/2 max-[1015px]:size-5" />
-        </div>
-
-        <div className="flex items-center justify-center">
-          {isMobile ? <SwitchtoDarkMode /> : <ThemeToggleSwitch />}
-        </div>
-
-        <Notification />
-      </div>
-    </header>
+    </>
   );
 }

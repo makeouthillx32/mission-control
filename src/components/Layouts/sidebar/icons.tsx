@@ -1,3 +1,5 @@
+// src/components/Layouts/sidebar/icons.tsx
+
 export {
   Home as HomeIcon,
   Monitor as MonitorIcon,
