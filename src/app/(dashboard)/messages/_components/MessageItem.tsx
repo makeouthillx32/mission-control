@@ -3,7 +3,7 @@
 
 import { MoreVertical } from 'lucide-react';
 import { format } from 'date-fns';
-import { useState } from 'react';
+import React from 'react';
 
 interface Attachment {
   id: string;
@@ -32,9 +32,92 @@ interface MessageItemProps {
   message: Message;
   currentUserId: string | null;
   isDeleting?: boolean;
-  onContextMenu: (e: React.MouseEvent, messageId: string | number, messageContent: string, senderId: string) => void;
-  onTouchStart: (messageId: string | number, messageContent: string, senderId: string, element: HTMLElement) => void;
+  onContextMenu: (
+    e: React.MouseEvent,
+    messageId: string | number,
+    messageContent: string,
+    senderId: string
+  ) => void;
+  onTouchStart: (
+    messageId: string | number,
+    messageContent: string,
+    senderId: string,
+    element: HTMLElement
+  ) => void;
   onTouchEnd: () => void;
+}
+
+const chartColors = [
+  'bg-[hsl(var(--chart-1))]',
+  'bg-[hsl(var(--chart-2))]',
+  'bg-[hsl(var(--chart-3))]',
+  'bg-[hsl(var(--chart-4))]',
+  'bg-[hsl(var(--chart-5))]',
+];
+
+function getAvatarColorClass(text: string) {
+  const safeText = text || '?';
+  const index =
+    safeText.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) %
+    chartColors.length;
+
+  return chartColors[index];
+}
+
+function renderInitialsAvatar(text: string) {
+  const safeText = text || '?';
+  const initial = safeText.charAt(0).toUpperCase();
+
+  return (
+    <div
+      className={`avatar-initials ${getAvatarColorClass(
+        safeText
+      )} flex h-full w-full items-center justify-center`}
+    >
+      <span className="text-xs font-semibold uppercase text-[hsl(var(--primary-foreground))]">
+        {initial}
+      </span>
+    </div>
+  );
+}
+
+function renderAvatar(avatar: string, name: string) {
+  if (avatar?.startsWith('http')) {
+    return (
+      <img
+        src={avatar}
+        alt={`${name}'s avatar`}
+        className="h-full w-full object-cover"
+        onError={(e) => {
+          const target = e.currentTarget;
+          target.style.display = 'none';
+
+          const fallback = target.nextElementSibling as HTMLElement | null;
+          if (fallback) {
+            fallback.style.display = 'flex';
+          }
+        }}
+      />
+    );
+  }
+
+  return renderInitialsAvatar(name || avatar);
+}
+
+function formatMessageTime(timestamp: string) {
+  try {
+    return format(new Date(timestamp), 'h:mm a');
+  } catch {
+    return '';
+  }
+}
+
+function formatFileSize(bytes: number): string {
+  if (!bytes) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(k)), sizes.length - 1);
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
 export default function MessageItem({
@@ -43,114 +126,66 @@ export default function MessageItem({
   isDeleting = false,
   onContextMenu,
   onTouchStart,
-  onTouchEnd
+  onTouchEnd,
 }: MessageItemProps) {
   const isCurrentUser = message.sender.id === currentUserId;
 
-  // Avatar rendering logic (combined from MessageAvatar)
-  const renderAvatar = (avatar: string, name: string) => {
-    // If it's a URL, render image
-    if (avatar.startsWith('http')) {
-      return (
-        <img
-          src={avatar}
-          alt={`${name}'s avatar`}
-          className="w-full h-full object-cover"
-          onError={(e) => {
-            // Fallback to initials if image fails to load
-            const target = e.target as HTMLImageElement;
-            const parent = target.parentElement;
-            if (parent) {
-              parent.innerHTML = generateInitialsAvatar(name);
-            }
-          }}
-        />
-      );
-    }
-    
-    // Generate deterministic color based on avatar string
-    return generateInitialsAvatar(avatar);
-  };
-
-  // Generate initials avatar with deterministic color
-  const generateInitialsAvatar = (text: string) => {
-    const chartColors = [
-      'bg-[hsl(var(--chart-1))]',
-      'bg-[hsl(var(--chart-2))]',
-      'bg-[hsl(var(--chart-3))]',
-      'bg-[hsl(var(--chart-4))]',
-      'bg-[hsl(var(--chart-5))]'
-    ];
-    
-    // Create deterministic index based on text
-    const index = text.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % chartColors.length;
-    
-    return `
-      <div class="avatar-initials ${chartColors[index]} w-full h-full flex items-center justify-center">
-        <span class="text-xs font-semibold uppercase text-[hsl(var(--primary-foreground))]">
-          ${text.charAt(0).toUpperCase()}
-        </span>
-      </div>
-    `;
-  };
-
-  // Format message timestamp
-  const formatMessageTime = (timestamp: string) => {
-    try {
-      return format(new Date(timestamp), 'h:mm a');
-    } catch {
-      return '';
-    }
-  };
-
-  // Handle context menu
   const handleContextMenu = (e: React.MouseEvent) => {
     onContextMenu(e, message.id, message.content, message.sender.id);
   };
 
-  // Handle touch interactions for mobile
   const handleTouchStart = (e: React.TouchEvent) => {
-    onTouchStart(message.id, message.content, message.sender.id, e.currentTarget as HTMLElement);
+    onTouchStart(
+      message.id,
+      message.content,
+      message.sender.id,
+      e.currentTarget as HTMLElement
+    );
   };
+
+  const avatarFallback = renderInitialsAvatar(message.sender.name || message.sender.avatar);
 
   return (
     <div
-      className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'} mb-3 ${
-        isDeleting ? 'opacity-50 pointer-events-none' : ''
+      className={`mb-3 flex ${isCurrentUser ? 'justify-end' : 'justify-start'} ${
+        isDeleting ? 'pointer-events-none opacity-50' : ''
       }`}
     >
-      {/* Avatar for other users (left side) */}
       {!isCurrentUser && (
-        <div className="flex-shrink-0 mr-2">
-          <div className="message-avatar w-8 h-8 md:w-10 md:h-10 rounded-full overflow-hidden shadow-[var(--shadow-xs)]">
-            <div dangerouslySetInnerHTML={{ __html: renderAvatar(message.sender.avatar, message.sender.name) }} />
+        <div className="mr-2 flex-shrink-0">
+          <div className="message-avatar h-8 w-8 overflow-hidden rounded-full shadow-[var(--shadow-xs)] md:h-10 md:w-10">
+            {renderAvatar(message.sender.avatar, message.sender.name)}
+            {message.sender.avatar?.startsWith('http') && (
+              <div style={{ display: 'none' }}>{avatarFallback}</div>
+            )}
           </div>
         </div>
       )}
 
-      {/* Message content */}
-      <div className={`message ${isCurrentUser ? 'order-1' : 'order-2'} relative group max-w-[85%] md:max-w-[70%]`}>
-        {/* Sender name for other users */}
+      <div
+        className={`message relative group max-w-[85%] ${
+          isCurrentUser ? 'order-1' : 'order-2'
+        } md:max-w-[70%]`}
+      >
         {!isCurrentUser && (
-          <div className="text-xs text-[hsl(var(--muted-foreground))] mb-1 ml-1 font-[var(--font-sans)]">
+          <div className="mb-1 ml-1 text-xs text-[hsl(var(--muted-foreground))] font-[var(--font-sans)]">
             {message.sender.name}
           </div>
         )}
 
         <div className="flex flex-col">
-          {/* Message bubble */}
           <div
-            className={`message-bubble shadow-[var(--shadow-xs)] relative ${
+            className={`message-bubble relative cursor-pointer rounded-[var(--radius)] p-2 shadow-[var(--shadow-xs)] transition-all duration-200 md:p-3 ${
               isCurrentUser ? 'rounded-tr-none' : 'rounded-tl-none'
-            } rounded-[var(--radius)] cursor-pointer transition-all duration-200 p-2 md:p-3`}
+            }`}
             style={{
-              backgroundColor: isCurrentUser 
-                ? 'hsl(var(--sidebar-primary))' 
+              backgroundColor: isCurrentUser
+                ? 'hsl(var(--sidebar-primary))'
                 : 'hsl(var(--muted))',
-              color: isCurrentUser 
-                ? 'hsl(var(--sidebar-primary-foreground))' 
+              color: isCurrentUser
+                ? 'hsl(var(--sidebar-primary-foreground))'
                 : 'hsl(var(--foreground))',
-              boxShadow: 'var(--shadow-md)'
+              boxShadow: 'var(--shadow-md)',
             }}
             onContextMenu={handleContextMenu}
             onTouchStart={handleTouchStart}
@@ -163,33 +198,34 @@ export default function MessageItem({
               e.currentTarget.style.boxShadow = 'var(--shadow-md)';
             }}
           >
-            {/* More options indicator (desktop only) */}
-            <div className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 md:block hidden">
-              <div 
+            <div className="absolute -right-2 -top-2 hidden opacity-0 transition-opacity duration-200 group-hover:opacity-100 md:block">
+              <div
                 className="rounded-full p-1 shadow-sm"
                 style={{ backgroundColor: 'hsl(var(--muted))' }}
               >
-                <MoreVertical size={12} className="text-[hsl(var(--muted-foreground))]" />
+                <MoreVertical
+                  size={12}
+                  className="text-[hsl(var(--muted-foreground))]"
+                />
               </div>
             </div>
 
-            {/* Message text content */}
-            {message.content && (
-              <p className="text-sm break-words">{message.content}</p>
-            )}
+            {message.content && <p className="break-words text-sm">{message.content}</p>}
 
-            {/* Message image */}
             {message.image && (
-              <div className="mt-2 message-image overflow-hidden rounded-[calc(var(--radius)_-_2px)]" style={{ maxHeight: '200px', maxWidth: '300px' }}>
+              <div
+                className="message-image mt-2 overflow-hidden rounded-[calc(var(--radius)_-_2px)]"
+                style={{ maxHeight: '200px', maxWidth: '300px' }}
+              >
                 <img
                   src={message.image}
                   alt="Shared"
-                  style={{ 
-                    width: '100%', 
-                    height: 'auto', 
-                    maxHeight: '200px', 
+                  style={{
+                    width: '100%',
+                    height: 'auto',
+                    maxHeight: '200px',
                     objectFit: 'cover',
-                    display: 'block'
+                    display: 'block',
                   }}
                   onError={(e) => {
                     (e.target as HTMLImageElement).src =
@@ -199,17 +235,16 @@ export default function MessageItem({
               </div>
             )}
 
-            {/* Message attachments preview */}
             {message.attachments && message.attachments.length > 0 && (
               <div className="mt-2 space-y-2">
                 {message.attachments.map((attachment) => (
                   <div
                     key={attachment.id}
-                    className="flex items-center gap-2 p-2 rounded"
+                    className="flex items-center gap-2 rounded p-2"
                     style={{
                       backgroundColor: 'hsl(var(--background) / 0.5)',
                       border: '1px solid hsl(var(--border) / 0.5)',
-                      borderRadius: 'var(--radius)'
+                      borderRadius: 'var(--radius)',
                     }}
                   >
                     <div className="flex-shrink-0">
@@ -217,23 +252,24 @@ export default function MessageItem({
                         <img
                           src={attachment.url}
                           alt={attachment.name}
-                          className="w-8 h-8 object-cover rounded"
+                          className="h-8 w-8 rounded object-cover"
                         />
                       ) : (
-                        <div 
-                          className="w-8 h-8 rounded flex items-center justify-center"
+                        <div
+                          className="flex h-8 w-8 items-center justify-center rounded"
                           style={{ backgroundColor: 'hsl(var(--muted))' }}
                         >
                           <span className="text-xs">📄</span>
                         </div>
                       )}
                     </div>
-                    <div className="flex-1 min-w-0">
+
+                    <div className="min-w-0 flex-1">
                       <a
                         href={attachment.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-xs font-medium hover:underline block truncate"
+                        className="block truncate text-xs font-medium hover:underline"
                       >
                         {attachment.name}
                       </a>
@@ -247,21 +283,18 @@ export default function MessageItem({
             )}
           </div>
 
-          {/* Message metadata */}
-          <div className="flex items-center mt-1 ml-1">
+          <div className="ml-1 mt-1 flex items-center">
             <span className="text-xs text-[hsl(var(--muted-foreground))]">
               {formatMessageTime(message.timestamp)}
             </span>
-            
-            {/* Like count */}
+
             {message.likes > 0 && (
               <div className="ml-2 flex items-center text-xs text-[hsl(var(--destructive))]">
                 <span className="mr-1">❤️</span>
                 {message.likes}
               </div>
             )}
-            
-            {/* Deleting indicator */}
+
             {isDeleting && (
               <div className="ml-2 text-xs text-[hsl(var(--muted-foreground))]">
                 Deleting...
@@ -271,23 +304,16 @@ export default function MessageItem({
         </div>
       </div>
 
-      {/* Avatar for current user (right side) */}
       {isCurrentUser && (
-        <div className="flex-shrink-0 ml-2">
-          <div className="message-avatar w-8 h-8 md:w-10 md:h-10 rounded-full overflow-hidden shadow-[var(--shadow-xs)]">
-            <div dangerouslySetInnerHTML={{ __html: renderAvatar(message.sender.avatar, message.sender.name) }} />
+        <div className="ml-2 flex-shrink-0">
+          <div className="message-avatar h-8 w-8 overflow-hidden rounded-full shadow-[var(--shadow-xs)] md:h-10 md:w-10">
+            {renderAvatar(message.sender.avatar, message.sender.name)}
+            {message.sender.avatar?.startsWith('http') && (
+              <div style={{ display: 'none' }}>{avatarFallback}</div>
+            )}
           </div>
         </div>
       )}
     </div>
   );
-}
-
-// Utility function for file size formatting
-function formatFileSize(bytes: number): string {
-  if (bytes === 0) return '0 Bytes';
-  const k = 1024;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
