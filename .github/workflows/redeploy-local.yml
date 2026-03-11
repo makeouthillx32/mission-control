@@ -12,9 +12,7 @@ jobs:
     runs-on: [self-hosted, Windows, X64]
 
     steps:
-      - name: Redeploy Mission Control on local machine
+      - name: Run local restart script
         shell: cmd
         run: |
-          cd /d C:\Users\skill\.openclaw
-          docker compose pull mission-control
-          docker compose up -d mission-control
+          C:\Users\skill\.openclaw\mission-restart.cmd
