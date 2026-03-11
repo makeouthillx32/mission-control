@@ -1,0 +1,15 @@
+name: Test Local Runner
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: self-hosted
+    steps:
+      - name: Show machine info
+        shell: powershell
+        run: |
+          Write-Host "HOSTNAME: $env:COMPUTERNAME"
+          whoami
+          Get-Location

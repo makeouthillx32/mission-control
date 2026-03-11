@@ -1,0 +1,20 @@
+name: Redeploy Mission Control Locally
+
+on:
+  workflow_run:
+    workflows: ["Docker Publish"]
+    types:
+      - completed
+
+jobs:
+  redeploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: [self-hosted, Windows, X64]
+
+    steps:
+      - name: Redeploy Mission Control on local machine
+        shell: cmd
+        run: |
+          cd /d C:\Users\skill\.openclaw
+          docker compose pull mission-control
+          docker compose up -d mission-control
