@@ -1,9 +1,39 @@
 import { createClient } from '@/utils/supabase/server';
 
+export type ConversationSummary = {
+  name: string;
+  profile: string;
+  isActive: boolean;
+  lastMessage: {
+    content: string;
+    type: string;
+    timestamp: string;
+    isRead: boolean;
+  };
+  unreadCount: number;
+};
+
+type Participant = {
+  user_id: string;
+  display_name?: string | null;
+  avatar_url?: string | null;
+  online?: boolean | null;
+};
+
+type ConversationRow = {
+  channel_name?: string | null;
+  is_group?: boolean | null;
+  participants?: Participant[] | null;
+  last_message_content?: string | null;
+  last_message?: string | null;
+  last_message_at?: string | null;
+  unread_count?: number | null;
+};
+
 export async function getOverviewData() {
   try {
     const usersData = await getUsersData();
-    
+
     return {
       views: {
         value: 0,
@@ -33,7 +63,7 @@ export async function getOverviewData() {
 async function getUsersData() {
   try {
     const supabase = await createClient();
-    
+
     const { count: totalUsers, error: countError } = await supabase
       .from('profiles')
       .select('*', { count: 'exact', head: true });
@@ -46,7 +76,7 @@ async function getUsersData() {
     const now = new Date();
     const firstDayThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const firstDayLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    
+
     const { count: thisMonthUsers } = await supabase
       .from('profiles')
       .select('*', { count: 'exact', head: true })
@@ -75,10 +105,10 @@ async function getUsersData() {
   }
 }
 
-export async function getChatsData() {
+export async function getChatsData(): Promise<ConversationSummary[]> {
   try {
     const supabase = await createClient();
-    
+
     const {
       data: { user },
       error: authError,
@@ -89,9 +119,12 @@ export async function getChatsData() {
       return [];
     }
 
-    const { data, error } = await supabase.rpc('get_user_conversations_with_display_name', {
-      p_user_id: user.id,
-    });
+    const { data, error } = await supabase.rpc(
+      'get_user_conversations_with_display_name',
+      {
+        p_user_id: user.id,
+      }
+    );
 
     if (error) {
       console.error('RPC Error:', error.message);
@@ -103,39 +136,40 @@ export async function getChatsData() {
       return [];
     }
 
-    const mappedChats = data.map((conv) => {
+    const mappedChats: ConversationSummary[] = (data as ConversationRow[]).map((conv) => {
       let displayName = conv.channel_name || 'Unnamed Chat';
-      
+
       if (!conv.is_group && conv.participants && Array.isArray(conv.participants)) {
-        const otherParticipant = conv.participants.find(p => p.user_id !== user.id);
-        if (otherParticipant && otherParticipant.display_name) {
+        const otherParticipant = conv.participants.find((p) => p.user_id !== user.id);
+        if (otherParticipant?.display_name) {
           displayName = otherParticipant.display_name;
         }
       }
-      
+
       let profileImage = '/images/user/user-default.png';
       if (conv.is_group) {
         profileImage = '/images/user/group-default.png';
       } else if (conv.participants && Array.isArray(conv.participants)) {
-        const otherParticipant = conv.participants.find(p => p.user_id !== user.id);
-        if (otherParticipant && otherParticipant.avatar_url) {
+        const otherParticipant = conv.participants.find((p) => p.user_id !== user.id);
+        if (otherParticipant?.avatar_url) {
           profileImage = otherParticipant.avatar_url;
         }
       }
-      
+
       let isActive = false;
       if (conv.participants && Array.isArray(conv.participants)) {
-        isActive = conv.participants.some(p => p.online === true);
+        isActive = conv.participants.some((p) => p.online === true);
       }
-      
-      const lastMessageContent = conv.last_message_content || conv.last_message || 'No messages yet';
+
+      const lastMessageContent =
+        conv.last_message_content || conv.last_message || 'No messages yet';
       const lastMessageTime = conv.last_message_at || new Date().toISOString();
       const hasUnread = (conv.unread_count || 0) > 0;
-      
+
       return {
         name: displayName,
         profile: profileImage,
-        isActive: isActive,
+        isActive,
         lastMessage: {
           content: lastMessageContent,
           type: 'text',
@@ -147,7 +181,6 @@ export async function getChatsData() {
     });
 
     return mappedChats;
-    
   } catch (error) {
     console.error('Error fetching chats data:', error);
     return [];
