@@ -1,3 +1,4 @@
+# .github/workflows/docker-publish.yml
 name: Build & Push to ghcr.io
 
 on:
@@ -52,3 +53,6 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          build-args: |
+            NEXT_PUBLIC_SUPABASE_URL=http://localhost:54321
+            NEXT_PUBLIC_SUPABASE_ANON_KEY=dummy
