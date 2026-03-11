@@ -211,13 +211,13 @@ export default function ChatSidebar({
       storage.set(
         CHAT_CACHE_KEYS.USER_CONVERSATIONS(currentUserId),
         mapped,
-        CACHE_EXPIRY.MEDIUM,
+        CACHE_EXPIRY.HOUR,
         currentUserId
       );
       storage.set(
         CHAT_CACHE_KEYS.CONVERSATIONS,
         mapped,
-        CACHE_EXPIRY.MEDIUM
+        CACHE_EXPIRY.HOUR
       );
 
       setCacheInfo(`Fresh data: ${mapped.length} items (cached)`);
@@ -381,13 +381,13 @@ export default function ChatSidebar({
       storage.set(
         CHAT_CACHE_KEYS.USER_CONVERSATIONS(currentUserId),
         updated,
-        CACHE_EXPIRY.MEDIUM,
+        CACHE_EXPIRY.HOUR,
         currentUserId
       );
       storage.set(
         CHAT_CACHE_KEYS.CONVERSATIONS,
         updated,
-        CACHE_EXPIRY.MEDIUM
+        CACHE_EXPIRY.HOUR
       );
 
       setHasLoadedFromCache(true);
@@ -414,13 +414,13 @@ export default function ChatSidebar({
       storage.set(
         CHAT_CACHE_KEYS.USER_CONVERSATIONS(currentUserId),
         updated,
-        CACHE_EXPIRY.MEDIUM,
+        CACHE_EXPIRY.HOUR,
         currentUserId
       );
       storage.set(
         CHAT_CACHE_KEYS.CONVERSATIONS,
         updated,
-        CACHE_EXPIRY.MEDIUM
+        CACHE_EXPIRY.HOUR
       );
 
       storage.remove(CHAT_CACHE_KEYS.USER_MESSAGES(currentUserId, channelId));
@@ -453,13 +453,13 @@ export default function ChatSidebar({
       storage.set(
         CHAT_CACHE_KEYS.USER_CONVERSATIONS(currentUserId),
         updated,
-        CACHE_EXPIRY.MEDIUM,
+        CACHE_EXPIRY.HOUR,
         currentUserId
       );
       storage.set(
         CHAT_CACHE_KEYS.CONVERSATIONS,
         updated,
-        CACHE_EXPIRY.MEDIUM
+        CACHE_EXPIRY.HOUR
       );
 
       return updated;
