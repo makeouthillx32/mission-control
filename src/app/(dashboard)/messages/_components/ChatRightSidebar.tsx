@@ -6,7 +6,6 @@ import { useState, useEffect, useRef } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import { useRealtime } from '@/hooks/useRealtimeInsert';
 import { useSharedMedia } from '@/hooks/useSharedMedia';
-import { toast } from 'react-hot-toast';
 import ChatRightSidebarHeader from './ChatRightSidebarHeader';
 import ChatInfoSection from './ChatInfoSection';
 import ParticipantsSection from './ParticipantsSection';
@@ -62,7 +61,7 @@ export default function ChatRightSidebar({
     actions: true,
     media: false
   });
-  
+
   const isMounted = useRef(true);
 
   // Use the shared media hook (same pattern as useMessages)
@@ -72,7 +71,8 @@ export default function ChatRightSidebar({
   });
 
   // Compute values from selectedChat
-  const resolvedName = resolveChatDisplayName(selectedChat, currentUserId);
+  const normalizedCurrentUserId = currentUserId ?? null;
+  const resolvedName = resolveChatDisplayName(selectedChat, normalizedCurrentUserId);
   const channelId = selectedChat.id;
   const isGroup = selectedChat.is_group;
 
@@ -92,10 +92,10 @@ export default function ChatRightSidebar({
       setIsMobile(width < 768);
       setIsTablet(width >= 768 && width < 1024);
     };
-    
+
     checkScreenSize();
     window.addEventListener('resize', checkScreenSize);
-    
+
     return () => {
       window.removeEventListener('resize', checkScreenSize);
     };
@@ -107,13 +107,13 @@ export default function ChatRightSidebar({
       setParticipants(selectedChat.participants);
     }
   }, [selectedChat.participants]);
-  
+
   useEffect(() => {
     return () => {
       isMounted.current = false;
     };
   }, []);
-  
+
   // Monitor presence/online status changes
   useRealtime<any>({
     supabase,
@@ -121,14 +121,14 @@ export default function ChatRightSidebar({
     filter: channelId ? `channel_id=eq.${channelId}` : undefined,
     event: '*',
     enabled: !!channelId,
-    onEvent: ({ new: newState, old: oldState, eventType }) => {
+    onEvent: ({ new: newState, eventType }) => {
       if (!isMounted.current || !channelId) return;
-      
+
       console.log(`[RightSidebar] Presence event: ${eventType}`, newState);
-      
+
       if (eventType === 'INSERT' || eventType === 'UPDATE') {
-        setParticipants(prev => {
-          return prev.map(p => {
+        setParticipants((prev) => {
+          return prev.map((p) => {
             if (p.user_id === newState.user_id) {
               return {
                 ...p,
@@ -144,7 +144,7 @@ export default function ChatRightSidebar({
 
   // Toggle section collapse
   const toggleSection = (section: 'about' | 'actions' | 'media') => {
-    setSectionsCollapsed(prev => ({
+    setSectionsCollapsed((prev) => ({
       ...prev,
       [section]: !prev[section]
     }));
@@ -154,7 +154,6 @@ export default function ChatRightSidebar({
   useEffect(() => {
     if (mediaError) {
       console.error('[RightSidebar] Media loading error:', mediaError);
-      // Don't show toast for media errors - not critical
     }
   }, [mediaError]);
 
@@ -172,15 +171,18 @@ export default function ChatRightSidebar({
 
   if (!isOpen) {
     return (
-      <div style={{
-        width: '48px',
-        display: shouldShowAsOverlay ? 'none' : 'flex',
-        flexDirection: 'column',
-        borderLeft: '1px solid hsl(var(--border))',
-        backgroundColor: 'hsl(var(--card))'
-      }} className="lg:flex">
-        <button 
-          onClick={() => setIsOpen(true)} 
+      <div
+        style={{
+          width: '48px',
+          display: shouldShowAsOverlay ? 'none' : 'flex',
+          flexDirection: 'column',
+          borderLeft: '1px solid hsl(var(--border))',
+          backgroundColor: 'hsl(var(--card))'
+        }}
+        className="lg:flex"
+      >
+        <button
+          onClick={() => setIsOpen(true)}
           style={{
             padding: '8px',
             background: 'transparent',
@@ -189,13 +191,17 @@ export default function ChatRightSidebar({
             cursor: 'pointer',
             borderRadius: 'var(--radius)'
           }}
-          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'hsl(var(--accent))'}
-          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = 'hsl(var(--accent))';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = 'transparent';
+          }}
         >
           <Pencil size={16} />
         </button>
-        <button 
-          onClick={() => setIsOpen(true)} 
+        <button
+          onClick={() => setIsOpen(true)}
           style={{
             padding: '8px',
             background: 'transparent',
@@ -204,8 +210,12 @@ export default function ChatRightSidebar({
             cursor: 'pointer',
             borderRadius: 'var(--radius)'
           }}
-          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'hsl(var(--accent))'}
-          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = 'hsl(var(--accent))';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = 'transparent';
+          }}
         >
           <Image size={16} />
         </button>
@@ -214,34 +224,36 @@ export default function ChatRightSidebar({
   }
 
   return (
-    <div style={{
-      height: '100%',
-      backgroundColor: 'hsl(var(--card))',
-      color: 'hsl(var(--card-foreground))',
-      display: 'flex',
-      flexDirection: 'column',
-      boxShadow: 'var(--shadow-md)',
-      overflowY: 'auto'
-    }}>
-      <ChatRightSidebarHeader 
-        isGroup={isGroup} 
-        onClose={onClose} 
+    <div
+      style={{
+        height: '100%',
+        backgroundColor: 'hsl(var(--card))',
+        color: 'hsl(var(--card-foreground))',
+        display: 'flex',
+        flexDirection: 'column',
+        boxShadow: 'var(--shadow-md)',
+        overflowY: 'auto'
+      }}
+    >
+      <ChatRightSidebarHeader
+        isGroup={isGroup}
+        onClose={onClose}
       />
 
-      <ChatInfoSection 
+      <ChatInfoSection
         selectedChatName={resolvedName}
         participantCount={participants.length}
         isGroup={isGroup}
       />
 
-      <ParticipantsSection 
+      <ParticipantsSection
         participants={displayParticipants}
         isGroup={isGroup}
         isCollapsed={sectionsCollapsed.about}
         onToggle={() => toggleSection('about')}
       />
 
-      <ActionsSection 
+      <ActionsSection
         isGroup={isGroup}
         isCollapsed={sectionsCollapsed.actions}
         channelId={channelId}
@@ -250,7 +262,7 @@ export default function ChatRightSidebar({
         onClose={onClose}
       />
 
-      <SharedMediaSection 
+      <SharedMediaSection
         sharedMedia={sharedMedia}
         loadingMedia={loadingMedia}
         isCollapsed={sectionsCollapsed.media}
