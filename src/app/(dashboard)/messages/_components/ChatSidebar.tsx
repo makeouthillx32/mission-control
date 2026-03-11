@@ -22,7 +22,6 @@ const CHAT_CACHE_KEYS = {
   SELECTED_CHAT: 'selected_chat',
 } as const;
 
-// Types
 export interface Participant {
   user_id: string;
   display_name: string;
@@ -41,6 +40,10 @@ export interface Conversation {
   unread_count: number;
   participants: Participant[];
 }
+
+type CachedUser = {
+  id: string;
+};
 
 interface ChatSidebarProps {
   selectedChat: Conversation | null;
@@ -63,7 +66,6 @@ export default function ChatSidebar({
   const [hasLoadedFromCache, setHasLoadedFromCache] = useState(false);
   const [cacheInfo, setCacheInfo] = useState<string>('Initializing...');
   const [debugLog, setDebugLog] = useState<string[]>([]);
-
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const isMounted = useRef(true);
@@ -114,10 +116,7 @@ export default function ChatSidebar({
       hasFetched.current = true;
       lastFetchTime.current = Date.now();
 
-      if (!isMounted.current) {
-        addDebugLog('❌ Component unmounted before loading state');
-        return;
-      }
+      if (!isMounted.current) return;
 
       if (!hasLoadedFromCache || forceRefresh) {
         setIsLoading(true);
@@ -135,10 +134,7 @@ export default function ChatSidebar({
         }
       });
 
-      if (!isMounted.current) {
-        addDebugLog('❌ Component unmounted during fetch');
-        return;
-      }
+      if (!isMounted.current) return;
 
       addDebugLog(`📡 API response: ${res.status}`);
 
@@ -146,10 +142,7 @@ export default function ChatSidebar({
         const errorText = await res.text();
         addDebugLog(`❌ API error: ${res.status} - ${errorText.slice(0, 100)}`);
 
-        if (!isMounted.current) {
-          addDebugLog('❌ Component unmounted during error handling');
-          return;
-        }
+        if (!isMounted.current) return;
 
         if (hasLoadedFromCache && conversations.length > 0) {
           addDebugLog('📦 Using cache despite API error');
@@ -163,10 +156,7 @@ export default function ChatSidebar({
       const raw = await res.json();
       addDebugLog(`📦 Raw data received: ${Array.isArray(raw) ? raw.length : 'not array'} items`);
 
-      if (!isMounted.current) {
-        addDebugLog('❌ Component unmounted during data processing');
-        return;
-      }
+      if (!isMounted.current) return;
 
       if (!Array.isArray(raw)) {
         addDebugLog(`❌ Invalid format: ${typeof raw}`);
@@ -196,10 +186,7 @@ export default function ChatSidebar({
         })),
       }));
 
-      if (!isMounted.current) {
-        addDebugLog('❌ Component unmounted during mapping');
-        return;
-      }
+      if (!isMounted.current) return;
 
       addDebugLog(`✅ Mapped ${mapped.length} conversations successfully`);
 
@@ -237,13 +224,7 @@ export default function ChatSidebar({
     }
   };
 
-  const {
-    clearCache,
-    cleanup,
-    forceFetch,
-    debugCache,
-    clearLogs
-  } = useChatDebugActions({
+  useChatDebugActions({
     currentUserId,
     setConversations,
     setHasLoadedFromCache,
@@ -264,9 +245,9 @@ export default function ChatSidebar({
       CHAT_CACHE_KEYS.USER_CONVERSATIONS(userId),
       [],
       userId
-    );
+    ) as Conversation[];
 
-    if (userConversations && Array.isArray(userConversations) && userConversations.length > 0) {
+    if (Array.isArray(userConversations) && userConversations.length > 0) {
       addDebugLog(`✅ Found user cache: ${userConversations.length} conversations`);
       setConversations(userConversations);
       setIsLoading(false);
@@ -275,8 +256,12 @@ export default function ChatSidebar({
       return;
     }
 
-    const genericConversations = storage.get(CHAT_CACHE_KEYS.CONVERSATIONS, []);
-    if (genericConversations && Array.isArray(genericConversations) && genericConversations.length > 0) {
+    const genericConversations = storage.get(
+      CHAT_CACHE_KEYS.CONVERSATIONS,
+      []
+    ) as Conversation[];
+
+    if (Array.isArray(genericConversations) && genericConversations.length > 0) {
       addDebugLog(`✅ Found generic cache: ${genericConversations.length} conversations`);
       setConversations(genericConversations);
       setIsLoading(false);
@@ -296,7 +281,8 @@ export default function ChatSidebar({
       try {
         addDebugLog('🔍 Starting user initialization...');
 
-        const cachedUser = storage.get(CACHE_KEYS.CURRENT_USER);
+        const cachedUser = storage.get(CACHE_KEYS.CURRENT_USER) as CachedUser | null;
+
         if (cachedUser?.id && isMounted.current) {
           setCurrentUserId(cachedUser.id);
           addDebugLog(`✅ Found cached user: ${cachedUser.id.slice(-4)}`);
@@ -307,10 +293,7 @@ export default function ChatSidebar({
         addDebugLog('🌐 No cached user, fetching from Supabase...');
 
         const { data, error } = await supabase.auth.getUser();
-        if (!isMounted.current) {
-          addDebugLog('❌ Component unmounted during auth');
-          return;
-        }
+        if (!isMounted.current) return;
 
         if (error) {
           addDebugLog(`❌ Auth error: ${error.message}`);
@@ -323,7 +306,7 @@ export default function ChatSidebar({
           setCurrentUserId(data.user.id);
           addDebugLog(`✅ User authenticated: ${data.user.id.slice(-4)}`);
 
-          storage.set(CACHE_KEYS.CURRENT_USER, data.user, CACHE_EXPIRY.LONG, data.user.id);
+          storage.set(CACHE_KEYS.CURRENT_USER, data.user, CACHE_EXPIRY.HOUR, data.user.id);
           addDebugLog('💾 User cached successfully');
 
           loadConversationsFromCache(data.user.id);
@@ -430,9 +413,7 @@ export default function ChatSidebar({
       return updated;
     });
 
-    if (onConversationDeleted) {
-      onConversationDeleted(channelId);
-    }
+    onConversationDeleted?.(channelId);
   };
 
   const handleChatSelect = (chat: Conversation) => {
@@ -468,7 +449,7 @@ export default function ChatSidebar({
     storage.set(
       CHAT_CACHE_KEYS.SELECTED_CHAT,
       chat,
-      CACHE_EXPIRY.SHORT,
+      CACHE_EXPIRY.HOUR,
       currentUserId
     );
 
