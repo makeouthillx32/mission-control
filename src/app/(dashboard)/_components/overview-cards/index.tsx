@@ -1,48 +1,48 @@
 import { compactFormat } from "@/lib/format-number";
-import { getOverviewData } from "../../fetch";
+import { getOverviewData } from "../fetch";
 import { OverviewCard } from "./card";
 import * as icons from "./icons";
 
-export async function OverviewCardsGroup() {
-  const { views, profit, products, users } = await getOverviewData();
+export async function OverviewCards() {
+  const data = await getOverviewData();
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 sm:gap-6 xl:grid-cols-4 2xl:gap-7.5">
+    <>
       <OverviewCard
-        label="Total Views"
+        label="Views"
         data={{
-          ...views,
-          value: compactFormat(views.value),
+          ...data.views,
+          value: compactFormat(data.views.value),
         }}
         Icon={icons.Views}
       />
 
       <OverviewCard
-        label="Total Profit"
+        label="Profit"
         data={{
-          ...profit,
-          value: "$" + compactFormat(profit.value),
+          ...data.profit,
+          value: compactFormat(data.profit.value),
         }}
         Icon={icons.Profit}
       />
 
       <OverviewCard
-        label="Total Products"
+        label="Products"
         data={{
-          ...products,
-          value: compactFormat(products.value),
+          ...data.products,
+          value: compactFormat(data.products.value),
         }}
-        Icon={icons.Product}
+        Icon={icons.Products}
       />
 
       <OverviewCard
-        label="Total Users"
+        label="Users"
         data={{
-          ...users,
-          value: compactFormat(users.value),
+          ...data.users,
+          value: compactFormat(data.users.value),
         }}
         Icon={icons.Users}
       />
-    </div>
+    </>
   );
 }
