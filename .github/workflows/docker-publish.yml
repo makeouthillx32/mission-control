@@ -54,5 +54,13 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
-            NEXT_PUBLIC_SUPABASE_URL=http://localhost:54321
-            NEXT_PUBLIC_SUPABASE_ANON_KEY=dummy
+            NEXT_PUBLIC_SUPABASE_URL=http://kong:8000
+            NEXT_PUBLIC_SUPABASE_URL_BROWSER=${{ secrets.NEXT_PUBLIC_SUPABASE_URL_BROWSER }}
+            NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+            NEXT_PUBLIC_AGENT_NAME=${{ secrets.NEXT_PUBLIC_AGENT_NAME }}
+            NEXT_PUBLIC_AGENT_EMOJI=${{ secrets.NEXT_PUBLIC_AGENT_EMOJI }}
+            NEXT_PUBLIC_AGENT_DESCRIPTION=${{ secrets.NEXT_PUBLIC_AGENT_DESCRIPTION }}
+            NEXT_PUBLIC_OWNER_USERNAME=${{ secrets.NEXT_PUBLIC_OWNER_USERNAME }}
+            NEXT_PUBLIC_OWNER_EMAIL=${{ secrets.NEXT_PUBLIC_OWNER_EMAIL }}
+            NEXT_PUBLIC_COMPANY_NAME=${{ secrets.NEXT_PUBLIC_COMPANY_NAME }}
+            NEXT_PUBLIC_APP_TITLE=${{ secrets.NEXT_PUBLIC_APP_TITLE }}
