@@ -1,0 +1,19 @@
+# .github/workflows/redeploy-local.yml
+name: Redeploy Mission Control Locally
+
+on:
+  workflow_run:
+    workflows: ["Build & Push to ghcr.io"]
+    types:
+      - completed
+  workflow_dispatch:
+
+jobs:
+  redeploy:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: [self-hosted, windows, x64]
+
+    steps:
+      - name: Run local restart script
+        shell: cmd
+        run: C:\Users\skill\.openclaw\mission-restart.cmd
