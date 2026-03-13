@@ -80,7 +80,7 @@ export function TopBar() {
               margin: 0,
             }}
           >
-            TenacitOS
+            unenterOS
           </h1>
           <div
             style={{

@@ -30,6 +30,7 @@ export function classifyRoute(pathname: string): RouteInfo {
     lower.startsWith("/sign-up") ||
     lower.startsWith("/forgot-password") ||
     lower.startsWith("/reset-password") ||
+    lower.startsWith("/login") ||
     lower.startsWith("/auth/");
 
   // Catch-all for single-segment paths like /tops, /new-releases.
@@ -47,6 +48,7 @@ export function classifyRoute(pathname: string): RouteInfo {
     !lower.startsWith("/settings") &&
     !lower.startsWith("/protected") &&
     !lower.startsWith("/auth") &&
+    !lower.startsWith("/login") &&
     !lower.startsWith("/api");
 
   const isHome = pathname === "/";

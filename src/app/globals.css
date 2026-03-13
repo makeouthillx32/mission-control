@@ -1,5 +1,5 @@
 /* src/app/globals.css
-   TenacitOS design tokens are aliased to the shadcn DB-controlled tokens.
+   unenterOS design tokens are aliased to the shadcn DB-controlled tokens.
    Real values come from provider.tsx → getThemeById() → html.style.setProperty().
    Only semantic/functional tokens that have no shadcn equivalent are defined here. */
 
@@ -12,19 +12,19 @@
 
 @layer base {
   :root {
-    /* ── TenacitOS surface tokens → aliased to DB shadcn tokens ── */
+    /* ── unenterOS surface tokens → aliased to DB shadcn tokens ── */
     --bg:               hsl(var(--background));
     --surface:          hsl(var(--card));
     --surface-elevated: hsl(var(--popover));
     --surface-hover:    hsl(var(--accent));
     --card-elevated:    hsl(var(--popover));
 
-    /* ── TenacitOS text tokens → aliased to DB shadcn tokens ── */
+    /* ── unenterOS text tokens → aliased to DB shadcn tokens ── */
     --text-primary:   hsl(var(--foreground));
     --text-secondary: hsl(var(--muted-foreground));
     --text-muted:     hsl(var(--muted-foreground));
 
-    /* ── TenacitOS accent tokens → aliased to DB shadcn tokens ── */
+    /* ── unenterOS accent tokens → aliased to DB shadcn tokens ── */
     --accent-soft:  hsl(var(--accent));
     --accent-hover: hsl(var(--accent-foreground));
     --accent-muted: hsl(var(--muted));

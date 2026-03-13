@@ -4,7 +4,7 @@
 import { Sidebar } from "@/components/Layouts/sidebar";
 import { SidebarProvider } from "@/components/Layouts/sidebar/sidebar-context";
 import { TopBar } from "@/components/Layouts/dashboard";
-import { StatusBar } from "@/components/TenacitOS";
+import { StatusBar } from "@/components/unenterOS";
 import AccessibilityOverlay from "@/components/Layouts/overlays/accessibility/accessibility";
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
