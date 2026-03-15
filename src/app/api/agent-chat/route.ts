@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
             messages: [{ role: 'user', content: content.trim() }],
             user: `mission-control-${channel_id}`,
           }),
-          signal: AbortSignal.timeout(60000),
+          signal: AbortSignal.timeout(180000),
         });
 
         if (gatewayRes.ok) {
