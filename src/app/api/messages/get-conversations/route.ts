@@ -1,76 +1,65 @@
-// app/api/messages/get-conversations/route.ts (DEBUG VERSION)
+// app/api/messages/get-conversations/route.ts
+// No Supabase auth — Mission Control uses cookie-based auth.
+// Returns all channels with agent_id set — one per OpenClaw agent.
+
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { createServerClient } from '@supabase/ssr';
+import { createServiceClient } from '@/utils/supabase/server';
 
 export async function GET() {
-  console.log('🧪 [API DEBUG] get-conversations called');
-  
   try {
-    const cookieStore = await cookies();
-    console.log('🧪 [API DEBUG] Cookies retrieved');
+    const supabase = createServiceClient();
 
-    const getCookie = (name: string) => {
-      const cookie = cookieStore.get(name);
-      return cookie?.value ?? '';
-    };
+    // All agent channels — agent_id IS NOT NULL is the only criteria
+    const { data: channels, error: chanError } = await supabase
+      .from('channels')
+      .select('id, name, agent_id, created_at')
+      .not('agent_id', 'is', null)
+      .order('created_at', { ascending: true });
 
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name) {
-            return getCookie(name);
-          },
-          set: () => {},
-          remove: () => {},
-        },
+    if (chanError) {
+      console.error('[get-conversations] channels query error:', chanError);
+      return NextResponse.json({ error: chanError.message }, { status: 500 });
+    }
+
+    if (!channels || channels.length === 0) {
+      return NextResponse.json([]);
+    }
+
+    // Get last message per channel
+    const lastMessages: Record<string, any> = {};
+    for (const ch of channels) {
+      const { data: msgs } = await supabase
+        .from('messages')
+        .select('content, created_at, sender_name, sender_type')
+        .eq('channel_id', ch.id)
+        .order('created_at', { ascending: false })
+        .limit(1);
+      if (msgs && msgs.length > 0) {
+        lastMessages[ch.id] = msgs[0];
       }
-    );
-    console.log('🧪 [API DEBUG] Supabase client created');
-
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    console.log('🧪 [API DEBUG] Auth check result:', {
-      hasUser: !!user,
-      userId: user?.id,
-      userError: userError?.message
-    });
-
-    if (userError || !user) {
-      console.log('🧪 [API DEBUG] User not authenticated, returning 401');
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    console.log('🧪 [API DEBUG] Calling RPC function with user ID:', user.id);
-
-    const { data, error } = await supabase.rpc('get_user_conversations_with_display_name', {
-      p_user_id: user.id,
+    const result = channels.map((ch: any) => {
+      const last = lastMessages[ch.id];
+      return {
+        id: ch.id,
+        channel_id: ch.id,
+        channel_name: ch.name,
+        agent_id: ch.agent_id,
+        is_group: false,
+        last_message_content: last?.content || null,
+        last_message_at: last?.created_at || null,
+        unread_count: 0,
+        participants: [],
+      };
     });
 
-    console.log('🧪 [API DEBUG] RPC result:', {
-      hasData: !!data,
-      dataLength: Array.isArray(data) ? data.length : 'not array',
-      error: error?.message,
-      rawData: data
-    });
-
-    if (error) {
-      console.error('🧪 [API DEBUG] RPC Error:', error);
-      return NextResponse.json({ error: `RPC Failed: ${error.message}` }, { status: 500 });
-    }
-
-    console.log('🧪 [API DEBUG] Returning data:', data);
-    return NextResponse.json(data || []);
-    
+    return NextResponse.json(result);
   } catch (err) {
-    console.error('🧪 [API DEBUG] Unexpected error:', err);
-    return NextResponse.json({ 
-      error: `Server error: ${err instanceof Error ? err.message : 'Unknown error'}` 
-    }, { status: 500 });
+    console.error('[get-conversations] unexpected error:', err);
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : 'Unknown error' },
+      { status: 500 }
+    );
   }
 }
