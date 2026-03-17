@@ -40,7 +40,7 @@ export function Sidebar() {
         aria-label="Main navigation"
         aria-hidden={!isOpen}
       >
-        {/* Inner container fixed at 68px so content doesn't squish during animation */}
+        {/* Inner container fixed at 68px */}
         <div style={{
           width: "68px",
           height: "100%",
@@ -48,7 +48,6 @@ export function Sidebar() {
           flexDirection: "column",
           alignItems: "center",
           padding: "12px 6px",
-          gap: "4px",
         }}>
 
           {/* X close button — mobile only */}
@@ -75,23 +74,47 @@ export function Sidebar() {
             </button>
           )}
 
-          {NAV_ITEMS.map((item) => {
-            const isActive =
-              pathname === item.href ||
-              (item.href !== "/" && pathname.startsWith(item.href));
-            return (
-              <MenuItem
-                key={item.href}
-                href={item.href}
-                label={item.label}
-                icon={item.icon}
-                isActive={isActive}
-                onNavigate={() => isMobile && setIsOpen(false)}
-              />
-            );
-          })}
+          {/* Scrollable nav items */}
+          <div style={{
+            flex: 1,
+            overflowY: "auto",
+            overflowX: "hidden",
+            width: "100%",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: "4px",
+            // Hide scrollbar visually but keep it functional
+            scrollbarWidth: "none",
+            msOverflowStyle: "none",
+          }}
+            className="sidebar-scroll"
+          >
+            {NAV_ITEMS.map((item) => {
+              const isActive =
+                pathname === item.href ||
+                (item.href !== "/" && pathname.startsWith(item.href));
+              return (
+                <MenuItem
+                  key={item.href}
+                  href={item.href}
+                  label={item.label}
+                  icon={item.icon}
+                  isActive={isActive}
+                  onNavigate={() => isMobile && setIsOpen(false)}
+                />
+              );
+            })}
+          </div>
+
         </div>
       </aside>
+
+      <style>{`
+        .sidebar-scroll::-webkit-scrollbar {
+          display: none;
+        }
+      `}</style>
     </>
   );
 }
