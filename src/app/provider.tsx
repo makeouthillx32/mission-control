@@ -15,6 +15,7 @@ import { setCookie, getCookie } from "@/lib/cookieUtils";
 import { defaultThemeId, getThemeById, getAvailableThemeIds } from "@/themes";
 import type { Theme } from "@/types/theme";
 import { transitionTheme, smoothThemeToggle } from "@/utils/themeTransitions";
+import { OpenClawProvider } from "@/contexts/OpenClawContext";
 
 // ─── Theme Context ────────────────────────────────────────
 
@@ -190,7 +191,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
       value={{ themeId, setThemeId, themeType, toggleTheme, getTheme, availableThemes }}
     >
       <AuthContext.Provider value={{ session, loading }}>
-        {children}
+        <OpenClawProvider>
+          {children}
+        </OpenClawProvider>
       </AuthContext.Provider>
     </ThemeContext.Provider>
   );
