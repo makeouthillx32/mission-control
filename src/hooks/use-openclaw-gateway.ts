@@ -14,7 +14,7 @@ import type {
   RPCMethodMap,
   RPCParams,
   RPCResult,
-} from "@/lib/types";
+} from "@/types/gateway";
 
 interface UseOpenClawGatewayOptions {
   url?: string;

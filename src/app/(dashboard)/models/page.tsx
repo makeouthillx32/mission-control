@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useOpenClawModels } from "@/hooks/use-openclaw-models";
 import { useOpenClaw } from "@/contexts/OpenClawContext";
 import { Cpu, RefreshCw, Loader2, Brain, AlertCircle, Filter } from "lucide-react";
-import type { ModelChoice } from "@/lib/types";
+import type { ModelChoice } from "@/types/gateway";
 
 const PROVIDER_COLORS: Record<string, string> = {
   openai: "#10a37f",

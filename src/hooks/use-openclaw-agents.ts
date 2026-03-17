@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { useOpenClaw } from "@/contexts/OpenClawContext";
-import type { AgentSummary } from "@/lib/types";
+import type { AgentSummary } from "@/types/gateway";
 
 export function useOpenClawAgents() {
   const { rpc, isConnected } = useOpenClaw();

@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { useOpenClaw } from "@/contexts/OpenClawContext";
-import type { SessionSummary, SessionsListParams } from "@/lib/types";
+import type { SessionSummary, SessionsListParams } from "@/types/gateway";
 
 export function useOpenClawSessions(params?: SessionsListParams) {
   const { rpc, isConnected } = useOpenClaw();

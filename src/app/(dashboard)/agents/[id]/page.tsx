@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useOpenClaw } from "@/contexts/OpenClawContext";
 import { useOpenClawAgents } from "@/hooks/use-openclaw-agents";
 import { ArrowLeft, Save, Loader2 } from "lucide-react";
-import type { AgentSummary } from "@/lib/types";
+import type { AgentSummary } from "@/types/gateway";
 
 export default function EditAgentPage() {
   const params = useParams();

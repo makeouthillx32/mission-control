@@ -17,7 +17,7 @@ import {
   Smartphone,
   Link2,
 } from "lucide-react";
-import type { ChannelMeta, ChannelDetail } from "@/lib/types";
+import type { ChannelMeta, ChannelDetail } from "@/types/gateway";
 
 type QRState =
   | { step: "idle" }

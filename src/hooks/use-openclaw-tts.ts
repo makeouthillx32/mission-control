@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { useOpenClaw } from "@/contexts/OpenClawContext";
-import type { TTSStatus, TTSProviderInfo } from "@/lib/types";
+import type { TTSStatus, TTSProviderInfo } from "@/types/gateway";
 
 export function useOpenClawTTS() {
   const { rpc, isConnected } = useOpenClaw();

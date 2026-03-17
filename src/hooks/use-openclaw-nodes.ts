@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { useOpenClaw } from "@/contexts/OpenClawContext";
-import type { NodeInfo, DeviceInfo } from "@/lib/types";
+import type { NodeInfo, DeviceInfo } from "@/types/gateway";
 
 export function useOpenClawNodes() {
   const { rpc, isConnected } = useOpenClaw();

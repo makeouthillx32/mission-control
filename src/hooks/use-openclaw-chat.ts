@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useOpenClaw } from "@/contexts/OpenClawContext";
-import type { ChatEvent, ChatSendParams } from "@/lib/types";
+import type { ChatEvent, ChatSendParams } from "@/types/gateway";
 
 export type ChatMessageRole = "user" | "assistant";
 

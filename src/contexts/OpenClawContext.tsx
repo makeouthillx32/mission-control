@@ -11,7 +11,7 @@ import type {
   RPCParams,
   RPCResult,
   Snapshot,
-} from "@/lib/types";
+} from "@/types/gateway";
 
 interface OpenClawContextValue {
   state: GatewayConnectionState;
