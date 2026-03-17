@@ -43,13 +43,11 @@ export function TopBar() {
           justifyContent: "space-between",
           padding: "0 16px",
           zIndex: 40,
-          // On desktop push right of sidebar
-          marginLeft: isMobile ? 0 : "68px",
         }}
       >
         {/* Left — hamburger (mobile only) + logo */}
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          {/* Hamburger — exactly like old project, lg:hidden */}
+          {/* Hamburger — mobile only */}
           <button
             onClick={toggleSidebar}
             style={{
@@ -118,18 +116,15 @@ export function TopBar() {
               padding: isMobile ? "0 8px" : "0 12px",
               border: "1px solid hsl(var(--border))",
               cursor: "pointer",
-              overflow: "hidden",
               color: "var(--text-muted)",
+              fontSize: "12px",
+              overflow: "hidden",
             }}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0 }}>
-              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
             </svg>
-            {!isMobile && (
-              <span style={{ fontFamily: "var(--font-body)", fontSize: "12px", whiteSpace: "nowrap" }}>
-                Search... ⌘K
-              </span>
-            )}
+            {!isMobile && <span>Search... ⌘K</span>}
           </button>
 
           <div style={{ display: "flex", alignItems: "center" }}>
