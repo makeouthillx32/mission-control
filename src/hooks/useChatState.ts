@@ -1,7 +1,3 @@
-// hooks/useChatState.ts
-// No Supabase auth — Mission Control uses cookie-based auth.
-// System user ID is hardwired. Messages to agent channels go through /api/agent-chat.
-
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -24,7 +20,6 @@ const supabase = createBrowserClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-// Hardwired — single user app, no Supabase Auth needed
 const SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000001';
 
 interface UseChatStateOptions {
@@ -51,7 +46,6 @@ export function useChatState(options: UseChatStateOptions = {}) {
     enabled: !!selectedChat,
   });
 
-  // Combine messages with deduplication
   const allMessages = (() => {
     const messageMap = new Map<string | number, Message>();
     baseMessages.forEach(msg => messageMap.set(msg.id, msg));
@@ -76,17 +70,13 @@ export function useChatState(options: UseChatStateOptions = {}) {
   })();
 
   useEffect(() => {
-    return () => {
-      isMounted.current = false;
-    };
+    return () => { isMounted.current = false; };
   }, []);
 
-  // Clear realtime messages on chat switch
   useEffect(() => {
     setRealtimeMessages([]);
   }, [selectedChat?.id]);
 
-  // Clean up realtime messages when base loads
   useEffect(() => {
     if (baseMessages.length > 0 && realtimeMessages.length > 0) {
       const now = Date.now();
@@ -110,7 +100,6 @@ export function useChatState(options: UseChatStateOptions = {}) {
     }
   }, [baseMessages]);
 
-  // Update profiles from message data
   useEffect(() => {
     if (messageProfiles && Object.keys(messageProfiles).length > 0) {
       setUserProfiles(prev => ({ ...prev, ...messageProfiles }));
@@ -139,7 +128,6 @@ export function useChatState(options: UseChatStateOptions = {}) {
     [userProfiles, selectedChat?.participants]
   );
 
-  // Realtime incoming message handler
   const handleRealtimeMessage = useCallback(
     (newMsg: any) => {
       if (!isMounted.current || !selectedChat || newMsg.channel_id !== selectedChat.id) return;
@@ -148,18 +136,13 @@ export function useChatState(options: UseChatStateOptions = {}) {
       const existsInRealtime = realtimeMessages.some(msg => msg.id === newMsg.id);
       if (existsInBase || existsInRealtime) return;
 
-      let senderProfile = userProfiles[newMsg.sender_id];
-      if (!senderProfile && selectedChat?.participants) {
-        senderProfile = getUserProfileFromParticipants(newMsg.sender_id, selectedChat.participants);
-      }
-      if (!senderProfile) {
-        senderProfile = {
-          id: newMsg.sender_id,
-          name: newMsg.sender_id === SYSTEM_USER_ID ? 'You' : 'Agent',
-          avatar: newMsg.sender_id === SYSTEM_USER_ID ? 'Y' : 'A',
-          email: '',
-        };
-      }
+      const isUserMessage = newMsg.sender_type === 'user';
+      const senderProfile: UserProfile = {
+        id: isUserMessage ? SYSTEM_USER_ID : `agent-${newMsg.sender_name || 'agent'}`,
+        name: newMsg.sender_name || (isUserMessage ? 'You' : 'Agent'),
+        avatar: newMsg.sender_name?.charAt(0)?.toUpperCase() || (isUserMessage ? 'Y' : 'A'),
+        email: '',
+      };
 
       const transformedMessage = transformRealtimeMessage(newMsg, senderProfile);
       setRealtimeMessages(prev => {
@@ -167,7 +150,7 @@ export function useChatState(options: UseChatStateOptions = {}) {
         return [...prev, transformedMessage];
       });
     },
-    [selectedChat?.id, selectedChat?.participants, userProfiles, baseMessages, realtimeMessages]
+    [selectedChat?.id, baseMessages, realtimeMessages]
   );
 
   useRealtimeInsert({
@@ -178,7 +161,6 @@ export function useChatState(options: UseChatStateOptions = {}) {
     onInsert: handleRealtimeMessage,
   });
 
-  // Send message — routes to /api/agent-chat for agent channels
   const handleSendMessage = useCallback(
     async (e: React.FormEvent, attachments: any[] = []) => {
       e.preventDefault();
@@ -199,7 +181,6 @@ export function useChatState(options: UseChatStateOptions = {}) {
         email: '',
       };
 
-      // Optimistic message
       const optimisticMessage = createOptimisticMessage(
         SYSTEM_USER_ID,
         messageContent,
@@ -218,11 +199,8 @@ export function useChatState(options: UseChatStateOptions = {}) {
           }),
         });
 
-        if (!res.ok) {
-          throw new Error(`agent-chat failed: ${res.status}`);
-        }
+        if (!res.ok) throw new Error(`agent-chat failed: ${res.status}`);
 
-        // Remove optimistic — realtime will deliver the real message
         setRealtimeMessages(prev => prev.filter(msg => msg.id !== optimisticMessage.id));
       } catch (err) {
         console.error('[useChatState] send error:', err);
@@ -270,7 +248,7 @@ export function useChatState(options: UseChatStateOptions = {}) {
     currentUserId: SYSTEM_USER_ID,
     messageText,
     setMessageText,
-    authLoading: false,       // no auth needed
+    authLoading: false,
     loadingMessages,
     messagesError,
     allMessages,
