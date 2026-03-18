@@ -1,9 +1,15 @@
+// app/api/messages/[channel_id]/route.ts
+// No Supabase auth — Mission Control uses cookie-based auth.
+// Uses sender_type and sender_name columns directly — no profile lookup needed.
+
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/utils/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
 const SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000001';
+
+// Loose UUID check — accepts any UUID format including version 0
 const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function GET(

@@ -36,7 +36,6 @@ export function useChatState(options: UseChatStateOptions = {}) {
 
   const isMounted = useRef(true);
   const baseMessagesRef = useRef<Message[]>([]);
-  const realtimeMessagesRef = useRef<Message[]>([]);
   const selectedChatRef = useRef<Conversation | null>(null);
 
   const {
@@ -51,7 +50,6 @@ export function useChatState(options: UseChatStateOptions = {}) {
   });
 
   useEffect(() => { baseMessagesRef.current = baseMessages; }, [baseMessages]);
-  useEffect(() => { realtimeMessagesRef.current = realtimeMessages; }, [realtimeMessages]);
   useEffect(() => { selectedChatRef.current = selectedChat; }, [selectedChat]);
 
   const allMessages = (() => {
@@ -99,7 +97,7 @@ export function useChatState(options: UseChatStateOptions = {}) {
   }, [selectedChat?.id]);
 
   useEffect(() => {
-    if (baseMessages.length > 0 && realtimeMessagesRef.current.length > 0) {
+    if (baseMessages.length > 0) {
       const now = Date.now();
       setRealtimeMessages(prev =>
         prev.filter(msg => {
@@ -146,8 +144,7 @@ export function useChatState(options: UseChatStateOptions = {}) {
     const chat = selectedChatRef.current;
     if (!chat || newMsg.channel_id !== chat.id) return;
 
-    const base = baseMessagesRef.current;
-    if (base.some(msg => msg.id === newMsg.id)) return;
+    if (baseMessagesRef.current.some(msg => msg.id === newMsg.id)) return;
 
     const isUserMessage = newMsg.sender_type === 'user';
     const senderProfile: UserProfile = {
@@ -233,7 +230,6 @@ export function useChatState(options: UseChatStateOptions = {}) {
         },
       };
 
-      // Show user message + agent typing bubble immediately
       setRealtimeMessages(prev => [...prev, optimisticMessage, typingBubble]);
 
       try {
@@ -247,8 +243,6 @@ export function useChatState(options: UseChatStateOptions = {}) {
         });
 
         if (!res.ok) throw new Error(`agent-chat failed: ${res.status}`);
-
-        // Realtime INSERT events will swap out both bubbles when they arrive
       } catch (err) {
         console.error('[useChatState] send error:', err);
         setRealtimeMessages(prev =>
