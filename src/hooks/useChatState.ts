@@ -48,22 +48,34 @@ export function useChatState(options: UseChatStateOptions = {}) {
 
   const allMessages = (() => {
     const messageMap = new Map<string | number, Message>();
+
     baseMessages.forEach(msg => messageMap.set(msg.id, msg));
+
     realtimeMessages.forEach(msg => {
-      if (!messageMap.has(msg.id)) {
-        if (String(msg.id).startsWith('temp-')) {
-          const similar = baseMessages.find(
-            baseMsg =>
-              baseMsg.content === msg.content &&
-              baseMsg.sender.id === msg.sender.id &&
-              Math.abs(new Date(baseMsg.timestamp).getTime() - new Date(msg.timestamp).getTime()) < 10000
-          );
-          if (!similar) messageMap.set(msg.id, msg);
-        } else {
-          messageMap.set(msg.id, msg);
-        }
+      if (messageMap.has(msg.id)) return;
+
+      if (String(msg.id).startsWith('temp-')) {
+        const inBase = baseMessages.some(
+          baseMsg =>
+            baseMsg.content === msg.content &&
+            baseMsg.sender.id === msg.sender.id &&
+            Math.abs(new Date(baseMsg.timestamp).getTime() - new Date(msg.timestamp).getTime()) < 10000
+        );
+        if (inBase) return;
+
+        const inRealtime = realtimeMessages.some(
+          other =>
+            !String(other.id).startsWith('temp-') &&
+            other.content === msg.content &&
+            other.sender.id === msg.sender.id &&
+            Math.abs(new Date(other.timestamp).getTime() - new Date(msg.timestamp).getTime()) < 10000
+        );
+        if (inRealtime) return;
       }
+
+      messageMap.set(msg.id, msg);
     });
+
     return Array.from(messageMap.values()).sort(
       (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
     );
