@@ -28,10 +28,10 @@ export async function GET(
 
     const supabase = createServiceClient();
 
-    // Fetch messages — sender_type and sender_name carried on each row
+    // FIX: include sender_id so the client can correctly determine isCurrentUser
     const { data, error } = await supabase
       .from('messages')
-      .select('id, content, created_at, sender_type, sender_name')
+      .select('id, content, created_at, sender_id, sender_type, sender_name')
       .eq('channel_id', channel_id)
       .order('created_at', { ascending: true })
       .limit(100);
@@ -50,7 +50,8 @@ export async function GET(
       content: msg.content || '',
       timestamp: msg.created_at,
       sender: {
-        id: msg.sender_type === 'user' ? 'user' : 'agent',
+        // FIX: use the real sender_id UUID so isCurrentUser === (sender.id === currentUserId) works
+        id: msg.sender_id,
         name: msg.sender_name || (msg.sender_type === 'user' ? 'You' : 'Agent'),
         email: '',
         avatar: msg.sender_name?.charAt(0)?.toUpperCase() || (msg.sender_type === 'user' ? 'Y' : 'A'),
