@@ -21,6 +21,7 @@ const supabase = createBrowserClient(
 );
 
 const SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000001';
+const AGENT_TYPING_ID = 'agent-typing';
 
 interface UseChatStateOptions {
   onChatSelect?: (chat: Conversation) => void;
@@ -94,6 +95,7 @@ export function useChatState(options: UseChatStateOptions = {}) {
       const now = Date.now();
       setRealtimeMessages(prev =>
         prev.filter(realtimeMsg => {
+          if (realtimeMsg.id === AGENT_TYPING_ID) return true;
           const msgTime = new Date(realtimeMsg.timestamp).getTime();
           if (now - msgTime > 30000) return false;
           return !baseMessages.some(baseMsg => {
@@ -157,8 +159,13 @@ export function useChatState(options: UseChatStateOptions = {}) {
       };
 
       const transformedMessage = transformRealtimeMessage(newMsg, senderProfile);
+
       setRealtimeMessages(prev => {
         if (prev.some(msg => msg.id === transformedMessage.id)) return prev;
+        // Replace typing bubble in-place when agent message arrives
+        if (!isUserMessage && prev.some(msg => msg.id === AGENT_TYPING_ID)) {
+          return prev.map(msg => msg.id === AGENT_TYPING_ID ? transformedMessage : msg);
+        }
         return [...prev, transformedMessage];
       });
     },
@@ -213,10 +220,33 @@ export function useChatState(options: UseChatStateOptions = {}) {
 
         if (!res.ok) throw new Error(`agent-chat failed: ${res.status}`);
 
-        setRealtimeMessages(prev => prev.filter(msg => msg.id !== optimisticMessage.id));
+        // Remove optimistic user message, add agent typing bubble
+        const agentName = selectedChat.name || 'Agent';
+        const typingBubble: Message = {
+          id: AGENT_TYPING_ID,
+          content: '',
+          timestamp: new Date().toISOString(),
+          likes: 0,
+          image: null,
+          attachments: [],
+          isTyping: true,
+          sender: {
+            id: `agent-${agentName}`,
+            name: agentName,
+            avatar: agentName.charAt(0).toUpperCase(),
+            email: '',
+          },
+        };
+
+        setRealtimeMessages(prev => [
+          ...prev.filter(msg => msg.id !== optimisticMessage.id),
+          typingBubble,
+        ]);
       } catch (err) {
         console.error('[useChatState] send error:', err);
-        setRealtimeMessages(prev => prev.filter(msg => msg.id !== optimisticMessage.id));
+        setRealtimeMessages(prev =>
+          prev.filter(msg => msg.id !== optimisticMessage.id && msg.id !== AGENT_TYPING_ID)
+        );
         toast.error('Failed to send message');
       }
     },
