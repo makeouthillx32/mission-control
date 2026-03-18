@@ -1,6 +1,4 @@
-// utils/chatPageUtils.ts (FIXED - Handle empty messages gracefully)
 import { createBrowserClient } from '@supabase/ssr';
-import { toast } from 'react-hot-toast';
 
 const supabase = createBrowserClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -29,19 +27,17 @@ export interface UserProfile {
   email: string;
 }
 
-// Fetch messages for a channel with better empty state handling
 export async function fetchChannelMessages(channelId: string): Promise<Message[]> {
-  // Validate channel ID before making API call
   if (!isValidChannelId(channelId)) {
     console.error(`[ChatUtils] ❌ Invalid channel ID format:`, channelId);
     return [];
   }
-  
+
   console.log(`[ChatUtils] Fetching messages for channel: ${channelId}`);
-  
+
   try {
     const res = await fetch(`/api/messages/${channelId}`);
-    
+
     if (!res.ok) {
       const errorText = await res.text();
       console.error(`[ChatUtils] API error: ${res.status} - ${errorText}`);
@@ -51,17 +47,17 @@ export async function fetchChannelMessages(channelId: string): Promise<Message[]
       if (res.status === 500) return [];
       throw new Error(`Failed to load messages: ${res.status} - ${errorText}`);
     }
-    
+
     const messageData = await res.json();
     if (!messageData) return [];
     if (!Array.isArray(messageData)) return [];
-    
+
     console.log(`[ChatUtils] ✅ Received ${messageData.length} messages from API`);
-    
-    return messageData.length > 0 
+
+    return messageData.length > 0
       ? messageData.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
       : [];
-      
+
   } catch (error) {
     console.error(`[ChatUtils] Error fetching messages for channel ${channelId}:`, error);
     if (error instanceof TypeError && error.message.includes('fetch')) return [];
@@ -69,7 +65,6 @@ export async function fetchChannelMessages(channelId: string): Promise<Message[]
   }
 }
 
-// Send a message — goes through agent-chat API, not direct Supabase insert
 export async function sendMessage(
   channelId: string,
   currentUserId: string,
@@ -77,7 +72,7 @@ export async function sendMessage(
   attachments: any[] = []
 ): Promise<string> {
   console.log(`[ChatUtils] Sending message to channel ${channelId}`);
-  
+
   try {
     const res = await fetch('/api/agent-chat', {
       method: 'POST',
@@ -100,7 +95,6 @@ export async function sendMessage(
   }
 }
 
-// Create optimistic message for UI
 export function createOptimisticMessage(
   currentUserId: string,
   messageContent: string,
@@ -119,12 +113,11 @@ export function createOptimisticMessage(
       id: currentUserId,
       name: userProfile.name,
       avatar: userProfile.avatar,
-      email: userProfile.email
-    }
+      email: userProfile.email,
+    },
   };
 }
 
-// Transform realtime message
 export function transformRealtimeMessage(newMsg: any, senderProfile: UserProfile | null): Message {
   return {
     id: newMsg.id,
@@ -132,16 +125,16 @@ export function transformRealtimeMessage(newMsg: any, senderProfile: UserProfile
     timestamp: newMsg.created_at || new Date().toISOString(),
     likes: 0,
     image: null,
+    attachments: [],
     sender: {
-      id: newMsg.sender_id ?? newMsg.sender_type ?? 'unknown',
+      id: senderProfile?.id ?? newMsg.sender_type ?? 'unknown',
       name: senderProfile?.name || newMsg.sender_name || 'Unknown',
       avatar: senderProfile?.avatar || newMsg.sender_name?.charAt(0)?.toUpperCase() || 'U',
       email: senderProfile?.email || '',
-    }
+    },
   };
 }
 
-// Get user profile from participants
 export function getUserProfileFromParticipants(
   userId: string,
   participants: any[]
@@ -153,13 +146,12 @@ export function getUserProfileFromParticipants(
       id: participant.user_id,
       name: participant.display_name || 'User',
       avatar: participant.avatar_url || participant.display_name?.charAt(0)?.toUpperCase() || 'U',
-      email: participant.email || ''
+      email: participant.email || '',
     };
   }
   return null;
 }
 
-// Build user profiles cache from participants
 export function buildUserProfilesCache(participants: any[]): Record<string, UserProfile> {
   const cache: Record<string, UserProfile> = {};
   if (!Array.isArray(participants)) return cache;
@@ -169,14 +161,13 @@ export function buildUserProfilesCache(participants: any[]): Record<string, User
         id: participant.user_id,
         name: participant.display_name || 'User',
         avatar: participant.avatar_url || participant.display_name?.charAt(0)?.toUpperCase() || 'U',
-        email: participant.email || ''
+        email: participant.email || '',
       };
     }
   });
   return cache;
 }
 
-// Build user profiles cache from messages
 export function buildUserProfilesCacheFromMessages(messages: Message[]): Record<string, UserProfile> {
   const cache: Record<string, UserProfile> = {};
   if (!Array.isArray(messages)) return cache;
@@ -186,14 +177,13 @@ export function buildUserProfilesCacheFromMessages(messages: Message[]): Record<
         id: message.sender.id,
         name: message.sender.name || 'User',
         avatar: message.sender.avatar || message.sender.name?.charAt(0)?.toUpperCase() || 'U',
-        email: message.sender.email || ''
+        email: message.sender.email || '',
       };
     }
   });
   return cache;
 }
 
-// Resolve chat display name
 export function resolveChatDisplayName(
   selectedChat: any,
   currentUserId: string | null
@@ -210,19 +200,16 @@ export function resolveChatDisplayName(
   return selectedChat.is_group ? 'Unnamed Group' : 'Direct Message';
 }
 
-// Initialize Supabase auth — Mission Control is single-user, always returns null
 export async function initializeAuth(): Promise<string | null> {
   return null;
 }
 
-// Loose UUID check — accepts any UUID including version 0 (seeded channels)
 export function isValidChannelId(channelId: any): channelId is string {
   if (typeof channelId !== 'string') return false;
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   return uuidRegex.test(channelId);
 }
 
-// Extract channel ID from chat object
 export function extractChannelId(chatObject: any): string | null {
   if (!chatObject) return null;
   const possibleIds = [chatObject.channel_id, chatObject.id, chatObject.channelId];
