@@ -65,6 +65,7 @@ export async function POST(req: NextRequest) {
           body: JSON.stringify({
             model: `openclaw:${agentId}`,
             messages: [{ role: 'user', content: content.trim() }],
+            max_tokens: 32768,
             user: `mission-control-${channel_id}`,
           }),
           signal: AbortSignal.timeout(180000),
