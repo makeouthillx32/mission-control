@@ -1,13 +1,9 @@
-// app/api/messages/[channel_id]/route.ts
-// No Supabase auth — Mission Control uses cookie-based auth.
-// Uses sender_type and sender_name columns directly — no profile lookup needed.
-
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/utils/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
-// Loose UUID check — accepts any UUID format including version 0
+const SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000001';
 const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function GET(
@@ -28,10 +24,9 @@ export async function GET(
 
     const supabase = createServiceClient();
 
-    // FIX: include sender_id so the client can correctly determine isCurrentUser
     const { data, error } = await supabase
       .from('messages')
-      .select('id, content, created_at, sender_id, sender_type, sender_name')
+      .select('id, content, created_at, sender_type, sender_name')
       .eq('channel_id', channel_id)
       .order('created_at', { ascending: true })
       .limit(100);
@@ -45,23 +40,25 @@ export async function GET(
       return NextResponse.json([]);
     }
 
-    const messages = data.map((msg: any) => ({
-      id: msg.id,
-      content: msg.content || '',
-      timestamp: msg.created_at,
-      sender: {
-        // FIX: use the real sender_id UUID so isCurrentUser === (sender.id === currentUserId) works
-        id: msg.sender_id,
-        name: msg.sender_name || (msg.sender_type === 'user' ? 'You' : 'Agent'),
-        email: '',
-        avatar: msg.sender_name?.charAt(0)?.toUpperCase() || (msg.sender_type === 'user' ? 'Y' : 'A'),
-      },
-      isEdited: false,
-      reactions: [],
-      attachments: [],
-      likes: 0,
-      image: null,
-    }));
+    const messages = data.map((msg: any) => {
+      const isUser = msg.sender_type === 'user';
+      return {
+        id: msg.id,
+        content: msg.content || '',
+        timestamp: msg.created_at,
+        sender: {
+          id: isUser ? SYSTEM_USER_ID : `agent-${msg.sender_name || 'agent'}`,
+          name: msg.sender_name || (isUser ? 'You' : 'Agent'),
+          email: '',
+          avatar: msg.sender_name?.charAt(0)?.toUpperCase() || (isUser ? 'Y' : 'A'),
+        },
+        isEdited: false,
+        reactions: [],
+        attachments: [],
+        likes: 0,
+        image: null,
+      };
+    });
 
     return NextResponse.json(messages);
   } catch (err) {
