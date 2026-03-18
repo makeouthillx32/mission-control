@@ -35,6 +35,9 @@ export function useChatState(options: UseChatStateOptions = {}) {
   const [realtimeMessages, setRealtimeMessages] = useState<Message[]>([]);
 
   const isMounted = useRef(true);
+  const baseMessagesRef = useRef<Message[]>([]);
+  const realtimeMessagesRef = useRef<Message[]>([]);
+  const selectedChatRef = useRef<Conversation | null>(null);
 
   const {
     messages: baseMessages,
@@ -46,6 +49,10 @@ export function useChatState(options: UseChatStateOptions = {}) {
     channelId: selectedChat?.id || null,
     enabled: !!selectedChat,
   });
+
+  useEffect(() => { baseMessagesRef.current = baseMessages; }, [baseMessages]);
+  useEffect(() => { realtimeMessagesRef.current = realtimeMessages; }, [realtimeMessages]);
+  useEffect(() => { selectedChatRef.current = selectedChat; }, [selectedChat]);
 
   const allMessages = (() => {
     const messageMap = new Map<string | number, Message>();
@@ -67,6 +74,7 @@ export function useChatState(options: UseChatStateOptions = {}) {
         const inRealtime = realtimeMessages.some(
           other =>
             !String(other.id).startsWith('temp-') &&
+            other.id !== AGENT_TYPING_ID &&
             other.content === msg.content &&
             other.sender.id === msg.sender.id &&
             Math.abs(new Date(other.timestamp).getTime() - new Date(msg.timestamp).getTime()) < 10000
@@ -91,24 +99,15 @@ export function useChatState(options: UseChatStateOptions = {}) {
   }, [selectedChat?.id]);
 
   useEffect(() => {
-    if (baseMessages.length > 0 && realtimeMessages.length > 0) {
+    if (baseMessages.length > 0 && realtimeMessagesRef.current.length > 0) {
       const now = Date.now();
       setRealtimeMessages(prev =>
-        prev.filter(realtimeMsg => {
-          if (realtimeMsg.id === AGENT_TYPING_ID) return true;
-          const msgTime = new Date(realtimeMsg.timestamp).getTime();
+        prev.filter(msg => {
+          if (msg.id === AGENT_TYPING_ID) return true;
+          if (String(msg.id).startsWith('temp-')) return true;
+          const msgTime = new Date(msg.timestamp).getTime();
           if (now - msgTime > 30000) return false;
-          return !baseMessages.some(baseMsg => {
-            if (baseMsg.id === realtimeMsg.id) return true;
-            if (String(realtimeMsg.id).startsWith('temp-')) {
-              return (
-                baseMsg.content === realtimeMsg.content &&
-                baseMsg.sender.id === realtimeMsg.sender.id &&
-                Math.abs(new Date(baseMsg.timestamp).getTime() - msgTime) < 10000
-              );
-            }
-            return false;
-          });
+          return !baseMessages.some(base => base.id === msg.id);
         })
       );
     }
@@ -142,35 +141,44 @@ export function useChatState(options: UseChatStateOptions = {}) {
     [userProfiles, selectedChat?.participants]
   );
 
-  const handleRealtimeMessage = useCallback(
-    (newMsg: any) => {
-      if (!isMounted.current || !selectedChat || newMsg.channel_id !== selectedChat.id) return;
+  const handleRealtimeMessage = useCallback((newMsg: any) => {
+    if (!isMounted.current) return;
+    const chat = selectedChatRef.current;
+    if (!chat || newMsg.channel_id !== chat.id) return;
 
-      const existsInBase = baseMessages.some(msg => msg.id === newMsg.id);
-      const existsInRealtime = realtimeMessages.some(msg => msg.id === newMsg.id);
-      if (existsInBase || existsInRealtime) return;
+    const base = baseMessagesRef.current;
+    if (base.some(msg => msg.id === newMsg.id)) return;
 
-      const isUserMessage = newMsg.sender_type === 'user';
-      const senderProfile: UserProfile = {
-        id: isUserMessage ? SYSTEM_USER_ID : `agent-${newMsg.sender_name || 'agent'}`,
-        name: newMsg.sender_name || (isUserMessage ? 'You' : 'Agent'),
-        avatar: newMsg.sender_name?.charAt(0)?.toUpperCase() || (isUserMessage ? 'Y' : 'A'),
-        email: '',
-      };
+    const isUserMessage = newMsg.sender_type === 'user';
+    const senderProfile: UserProfile = {
+      id: isUserMessage ? SYSTEM_USER_ID : `agent-${newMsg.sender_name || 'agent'}`,
+      name: newMsg.sender_name || (isUserMessage ? 'You' : 'Agent'),
+      avatar: newMsg.sender_name?.charAt(0)?.toUpperCase() || (isUserMessage ? 'Y' : 'A'),
+      email: '',
+    };
 
-      const transformedMessage = transformRealtimeMessage(newMsg, senderProfile);
+    const transformedMessage = transformRealtimeMessage(newMsg, senderProfile);
 
-      setRealtimeMessages(prev => {
-        if (prev.some(msg => msg.id === transformedMessage.id)) return prev;
-        // Replace typing bubble in-place when agent message arrives
-        if (!isUserMessage && prev.some(msg => msg.id === AGENT_TYPING_ID)) {
-          return prev.map(msg => msg.id === AGENT_TYPING_ID ? transformedMessage : msg);
-        }
-        return [...prev, transformedMessage];
-      });
-    },
-    [selectedChat?.id, baseMessages, realtimeMessages]
-  );
+    setRealtimeMessages(prev => {
+      if (prev.some(msg => msg.id === transformedMessage.id)) return prev;
+
+      if (isUserMessage) {
+        const withoutOptimistic = prev.filter(
+          msg =>
+            !(String(msg.id).startsWith('temp-') &&
+              msg.content === transformedMessage.content &&
+              msg.sender.id === transformedMessage.sender.id)
+        );
+        return [...withoutOptimistic, transformedMessage];
+      }
+
+      if (prev.some(msg => msg.id === AGENT_TYPING_ID)) {
+        return prev.map(msg => msg.id === AGENT_TYPING_ID ? transformedMessage : msg);
+      }
+
+      return [...prev, transformedMessage];
+    });
+  }, []);
 
   useRealtimeInsert({
     supabase,
@@ -200,13 +208,33 @@ export function useChatState(options: UseChatStateOptions = {}) {
         email: '',
       };
 
+      const agentName = selectedChat.name || 'Agent';
+
       const optimisticMessage = createOptimisticMessage(
         SYSTEM_USER_ID,
         messageContent,
         userProfile,
         attachments
       );
-      setRealtimeMessages(prev => [...prev, optimisticMessage]);
+
+      const typingBubble: Message = {
+        id: AGENT_TYPING_ID,
+        content: '',
+        timestamp: new Date().toISOString(),
+        likes: 0,
+        image: null,
+        attachments: [],
+        isTyping: true,
+        sender: {
+          id: `agent-${agentName}`,
+          name: agentName,
+          avatar: agentName.charAt(0).toUpperCase(),
+          email: '',
+        },
+      };
+
+      // Show user message + agent typing bubble immediately
+      setRealtimeMessages(prev => [...prev, optimisticMessage, typingBubble]);
 
       try {
         const res = await fetch('/api/agent-chat', {
@@ -220,28 +248,7 @@ export function useChatState(options: UseChatStateOptions = {}) {
 
         if (!res.ok) throw new Error(`agent-chat failed: ${res.status}`);
 
-        // Remove optimistic user message, add agent typing bubble
-        const agentName = selectedChat.name || 'Agent';
-        const typingBubble: Message = {
-          id: AGENT_TYPING_ID,
-          content: '',
-          timestamp: new Date().toISOString(),
-          likes: 0,
-          image: null,
-          attachments: [],
-          isTyping: true,
-          sender: {
-            id: `agent-${agentName}`,
-            name: agentName,
-            avatar: agentName.charAt(0).toUpperCase(),
-            email: '',
-          },
-        };
-
-        setRealtimeMessages(prev => [
-          ...prev.filter(msg => msg.id !== optimisticMessage.id),
-          typingBubble,
-        ]);
+        // Realtime INSERT events will swap out both bubbles when they arrive
       } catch (err) {
         console.error('[useChatState] send error:', err);
         setRealtimeMessages(prev =>
