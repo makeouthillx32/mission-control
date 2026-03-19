@@ -1,106 +1,62 @@
-/**
- * Service action API
- * POST /api/system/services
- * Body: { name, backend, action }  action: restart | stop | start | logs
- */
-import { NextRequest, NextResponse } from 'next/server';
-import { exec } from 'child_process';
-import { promisify } from 'util';
+// src/app/api/system/services/route.ts
+import { NextRequest, NextResponse } from "next/server";
+import { exec } from "child_process";
+import { promisify } from "util";
 
 const execAsync = promisify(exec);
 
-const ALLOWED_SERVICES_PM2 = ['classvault', 'content-vault', 'postiz-simple', 'brain'];
-const ALLOWED_SERVICES_SYSTEMD = ['mission-control', 'openclaw-gateway', 'nginx'];
-const ALLOWED_DOCKER_IDS_PATTERN = /^[a-f0-9]{6,64}$|^[a-zA-Z0-9_-]+$/;
+// Allowlist — only containers that exist on POWER.
+// Extend as you add containers to your docker-compose stack.
+const ALLOWED_DOCKER = [
+  "mission-control",
+  "supabase-kong", "supabase-auth", "supabase-rest",
+  "supabase-realtime", "supabase-db", "supabase-studio",
+  "supabase-storage", "supabase-imgproxy", "supabase-meta",
+  "supabase-edge-functions", "dmr-provision",
+];
 
-async function pm2Action(name: string, action: string): Promise<string> {
-  if (!ALLOWED_SERVICES_PM2.includes(name)) {
-    throw new Error(`Service "${name}" not in allowlist`);
-  }
-  if (!['restart', 'stop', 'start', 'logs'].includes(action)) {
+const ALLOWED_SYSTEMD = ["mission-control", "openclaw-gateway"];
+
+async function dockerAction(name: string, action: string): Promise<string> {
+  if (!ALLOWED_DOCKER.includes(name))
+    throw new Error(`Container "${name}" not in allowlist`);
+  if (!["restart", "stop", "start", "logs"].includes(action))
     throw new Error(`Invalid action "${action}"`);
+  if (action === "logs") {
+    const { stdout } = await execAsync(`docker logs --tail 150 "${name}" 2>&1`);
+    return stdout || "No log output";
   }
-
-  if (action === 'logs') {
-    // Get last 100 lines of PM2 logs
-    try {
-      const logFile = `/root/.pm2/logs/${name}-out.log`;
-      const { stdout } = await execAsync(`tail -100 "${logFile}" 2>/dev/null || echo "No logs available"`);
-      const errFile = `/root/.pm2/logs/${name}-error.log`;
-      const { stdout: errOut } = await execAsync(`tail -50 "${errFile}" 2>/dev/null || echo ""`).catch(() => ({ stdout: '' }));
-      return `=== STDOUT (last 100 lines) ===\n${stdout}\n${errOut ? `\n=== STDERR (last 50 lines) ===\n${errOut}` : ''}`;
-    } catch {
-      return 'Could not retrieve logs';
-    }
-  }
-
-  const { stdout, stderr } = await execAsync(`pm2 ${action} "${name}" 2>&1`);
-  return stdout + (stderr ? `\nSTDERR: ${stderr}` : '');
+  const { stdout } = await execAsync(`docker ${action} "${name}" 2>&1`);
+  return stdout || `${action} executed`;
 }
 
 async function systemdAction(name: string, action: string): Promise<string> {
-  if (!ALLOWED_SERVICES_SYSTEMD.includes(name)) {
+  if (!ALLOWED_SYSTEMD.includes(name))
     throw new Error(`Service "${name}" not in allowlist`);
-  }
-  if (!['restart', 'stop', 'start', 'logs'].includes(action)) {
+  if (!["restart", "stop", "start", "logs"].includes(action))
     throw new Error(`Invalid action "${action}"`);
-  }
-
-  if (action === 'logs') {
+  if (action === "logs") {
     const { stdout } = await execAsync(`journalctl -u "${name}" -n 100 --no-pager 2>&1`);
     return stdout;
   }
-
   const { stdout } = await execAsync(`systemctl ${action} "${name}" 2>&1`);
-  return stdout || `${action} executed successfully`;
+  return stdout || `${action} executed`;
 }
 
-async function dockerAction(id: string, action: string): Promise<string> {
-  if (!ALLOWED_DOCKER_IDS_PATTERN.test(id)) {
-    throw new Error(`Invalid container ID "${id}"`);
-  }
-  if (!['start', 'stop', 'restart', 'logs'].includes(action)) {
-    throw new Error(`Invalid action "${action}"`);
-  }
-
-  if (action === 'logs') {
-    const { stdout } = await execAsync(`docker logs --tail 100 "${id}" 2>&1`);
-    return stdout;
-  }
-
-  const { stdout } = await execAsync(`docker ${action} "${id}" 2>&1`);
-  return stdout || `${action} executed successfully`;
-}
-
-export async function POST(request: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
-    const body = await request.json();
-    const { name, backend, action } = body;
+    const { name, backend, action } = await req.json();
+    if (!name || !action)
+      return NextResponse.json({ error: "name and action required" }, { status: 400 });
 
-    if (!name || !backend || !action) {
-      return NextResponse.json({ error: 'Missing name, backend or action' }, { status: 400 });
-    }
+    const output = backend === "docker"
+      ? await dockerAction(name, action)
+      : backend === "systemd"
+      ? await systemdAction(name, action)
+      : (() => { throw new Error(`Unknown backend "${backend}"`); })();
 
-    let output = '';
-
-    switch (backend) {
-      case 'pm2':
-        output = await pm2Action(name, action);
-        break;
-      case 'systemd':
-        output = await systemdAction(name, action);
-        break;
-      case 'docker':
-        output = await dockerAction(name, action);
-        break;
-      default:
-        return NextResponse.json({ error: `Unknown backend "${backend}"` }, { status: 400 });
-    }
-
-    return NextResponse.json({ success: true, output, action, name, backend });
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error);
-    console.error('[services API] Error:', msg);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json({ ok: true, output });
+  } catch (err) {
+    return NextResponse.json({ error: err instanceof Error ? err.message : "Action failed" }, { status: 500 });
   }
 }
