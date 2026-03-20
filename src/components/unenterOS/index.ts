@@ -1,6 +1,5 @@
 // src/components/TenacitOS/index.ts
 
-export { StatusBar } from "./StatusBar";
 export { SectionHeader } from "./SectionHeader";
 export { MetricCard } from "./MetricCard";
 export { AgentRow } from "./AgentRow";
