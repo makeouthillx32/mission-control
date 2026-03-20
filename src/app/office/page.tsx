@@ -1,3 +1,4 @@
+// src/app/office/page.tsx
 import Office3D from '@/components/Office3D/Office3D';
 
 export const metadata = {
@@ -6,5 +7,11 @@ export const metadata = {
 };
 
 export default function OfficePage() {
-  return <Office3D />;
+  // page-fill = calc(100vh - topbar - statusbar), no overflow
+  // position:relative so Office3D's absolute children are scoped here
+  return (
+    <div className="page-fill" style={{ position: "relative" }}>
+      <Office3D />
+    </div>
+  );
 }

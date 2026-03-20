@@ -1,12 +1,13 @@
-// components/theme/_components/button.scss
+// src/components/theme/_components/button.scss
 
 .accessibility-toggle-btn {
   position: fixed;
-  bottom: 1rem;
+  // Sits above the statusbar — calc accounts for the 32px bar + safe area
+  bottom: calc(var(--statusbar-h, 32px) + env(safe-area-inset-bottom, 0px) + 12px);
   right: 1rem;
-  z-index: 100; /* --z-overlay */
-  width: 3rem;            // 48px
-  height: 3rem;           // 48px
+  z-index: 10000; // Above statusbar (9999) and everything else
+  width: 3rem;
+  height: 3rem;
   cursor: pointer;
   padding: 0;
   background: none;
@@ -27,26 +28,25 @@
     width: 100%;
     height: 100%;
     display: block;
-    /* remove transform – let the SVG scale crisply */
     transform: none;
   }
 }
 
-// Tablet & up
+// Tablet
 @media (max-width: 768px) {
   .accessibility-toggle-btn {
-    bottom: 4rem;        // lift above nav bar
-    width: 3.5rem;       // 56px
-    height: 3.5rem;      // 56px
+    bottom: calc(var(--statusbar-h, 32px) + env(safe-area-inset-bottom, 0px) + 16px);
+    width: 3.5rem;
+    height: 3.5rem;
   }
 }
 
 // Mobile
 @media (max-width: 480px) {
   .accessibility-toggle-btn {
-    bottom: 1rem;
+    bottom: calc(var(--statusbar-h, 32px) + env(safe-area-inset-bottom, 0px) + 12px);
     right: 1rem;
-    width: 3rem;         // 48px
-    height: 3rem;        // 48px
+    width: 3rem;
+    height: 3rem;
   }
 }

@@ -26,34 +26,37 @@ export function Sidebar() {
         data-layout="sidebar"
         style={{
           width: isOpen ? "68px" : "0px",
-          overflow: "hidden",
+          // overflow:visible so tooltips escape the sidebar boundary
+          // Width animation handled by the inner wrapper clipping instead
+          overflow: "visible",
           transition: "width 0.2s ease-linear",
-          borderRight: isOpen ? "1px solid hsl(var(--border))" : "none",
           backgroundColor: "var(--surface)",
+          borderRight: isOpen ? "1px solid hsl(var(--border))" : "none",
           position: isMobile ? "fixed" : "sticky",
           top: 0,
           bottom: isMobile ? 0 : undefined,
           height: "100vh",
-          zIndex: isMobile ? 50 : undefined,
+          zIndex: isMobile ? 50 : 20,
           flexShrink: 0,
         }}
         aria-label="Main navigation"
-        aria-hidden={!isOpen}
       >
-        {/* Inner container fixed at 68px */}
-        <div style={{
-          width: "68px",
-          height: "100%",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          padding: "12px 6px",
-        }}>
-
-          {/* X close button — mobile only */}
+        {/* Inner wrapper — clips content to 68px width, tooltips escape via overflow:visible on aside */}
+        <div
+          style={{
+            width: "68px",
+            height: "100%",
+            overflow: "hidden",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",   // centers items horizontally in the 68px column
+            padding: "12px 0",
+          }}
+        >
+          {/* Close button — mobile only */}
           {isMobile && (
             <button
-              onClick={toggleSidebar}
+              onClick={() => setIsOpen(false)}
               aria-label="Close menu"
               style={{
                 display: "flex",
@@ -74,21 +77,22 @@ export function Sidebar() {
             </button>
           )}
 
-          {/* Scrollable nav items */}
-          <div style={{
-            flex: 1,
-            overflowY: "auto",
-            overflowX: "hidden",
-            width: "100%",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: "4px",
-            // Hide scrollbar visually but keep it functional
-            scrollbarWidth: "none",
-            msOverflowStyle: "none",
-          }}
+          {/* Scrollable nav — centered column */}
+          <div
             className="sidebar-scroll"
+            style={{
+              flex: 1,
+              overflowY: "auto",
+              overflowX: "visible",
+              width: "100%",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: "4px",
+              paddingBottom: "8px",
+              scrollbarWidth: "none",
+              msOverflowStyle: "none",
+            }}
           >
             {NAV_ITEMS.map((item) => {
               const isActive =
@@ -106,15 +110,10 @@ export function Sidebar() {
               );
             })}
           </div>
-
         </div>
       </aside>
 
-      <style>{`
-        .sidebar-scroll::-webkit-scrollbar {
-          display: none;
-        }
-      `}</style>
+      <style>{`.sidebar-scroll::-webkit-scrollbar { display: none; }`}</style>
     </>
   );
 }

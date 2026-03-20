@@ -15,9 +15,7 @@ interface SystemStats {
 }
 
 function Sep() {
-  return (
-    <div style={{ width: "1px", height: "16px", backgroundColor: "var(--border)", flexShrink: 0 }} />
-  );
+  return <div style={{ width: "1px", height: "16px", backgroundColor: "var(--border)", flexShrink: 0 }} />;
 }
 
 function Metric({
@@ -88,15 +86,15 @@ export function StatusBar() {
     return () => clearInterval(t);
   }, []);
 
-  const cpuColor  = stats.cpu < 60   ? "var(--positive)" : stats.cpu < 85   ? "var(--warning)" : "var(--negative)";
-  const ramPct    = (stats.ram.used  / stats.ram.total)  * 100;
-  const ramColor  = ramPct  < 60     ? "var(--positive)" : ramPct  < 85     ? "var(--warning)" : "var(--negative)";
-  const diskPct   = (stats.disk.used / stats.disk.total) * 100;
-  const diskColor = diskPct < 60     ? "var(--positive)" : diskPct < 85     ? "var(--warning)" : "var(--negative)";
+  const cpuColor   = stats.cpu  < 60 ? "var(--positive)" : stats.cpu  < 85 ? "var(--warning)" : "var(--negative)";
+  const ramPct     = (stats.ram.used  / stats.ram.total)  * 100;
+  const ramColor   = ramPct    < 60 ? "var(--positive)" : ramPct    < 85 ? "var(--warning)" : "var(--negative)";
+  const diskPct    = (stats.disk.used / stats.disk.total) * 100;
+  const diskColor  = diskPct   < 60 ? "var(--positive)" : diskPct   < 85 ? "var(--warning)" : "var(--negative)";
 
   const FirewallIcon = stats.firewallActive ? ShieldCheck : ShieldOff;
+  const firewallColor = stats.firewallActive ? "var(--positive)" : "var(--negative)";
 
-  // Responsive content breakpoints — bar is ALWAYS rendered
   const isCompact = width < 850;
   const isTablet  = width >= 850 && width < 1200;
 
@@ -111,15 +109,17 @@ export function StatusBar() {
         height: "32px",
         backgroundColor: "var(--surface)",
         borderTop: "1px solid var(--border)",
-        zIndex: 40,
-        // Safe area for iOS PWA
         paddingBottom: "env(safe-area-inset-bottom, 0px)",
+        // High z-index — must beat Three.js WebGL canvas stacking context (typically z-index: auto)
+        // and our own z-overlay (100). Three.js creates a new stacking context so we need to be
+        // above it at the document level.
+        zIndex: 9999,
         overflowX: "auto",
         overflowY: "hidden",
         scrollbarWidth: "none",
       }}
     >
-      {/* Inner centered container — matches page max-width */}
+      {/* Centered inner container */}
       <div
         style={{
           display: "flex",
@@ -127,27 +127,23 @@ export function StatusBar() {
           height: "32px",
           maxWidth: "var(--page-max-width, 1400px)",
           margin: "0 auto",
-          paddingLeft:  "calc(var(--sidebar-width, 68px) + var(--page-padding, 24px))",
-          paddingRight: "var(--page-padding, 24px)",
+          paddingLeft:  "calc(var(--sidebar-w, 68px) + 24px)",
+          paddingRight: "24px",
           gap: "14px",
         }}
       >
         {isCompact ? (
-          // Collapsed sidebar mode — minimal
           <>
-            <Metric icon={Cpu}         value={`${stats.cpu}%`}                  valueColor={cpuColor} />
+            <Metric icon={Cpu}         value={`${stats.cpu}%`}                  valueColor={cpuColor} showBar={false} />
             <Sep />
-            <Metric icon={MemoryStick} value={`${stats.ram.used.toFixed(1)}GB`} valueColor={ramColor} />
+            <Metric icon={MemoryStick} value={`${stats.ram.used.toFixed(1)}GB`} valueColor={ramColor} showBar={false} />
             <Sep />
             <div style={{ display: "flex", alignItems: "center", gap: "5px", flexShrink: 0 }}>
-              <FirewallIcon style={{ width: "12px", height: "12px", color: stats.firewallActive ? "var(--positive)" : "var(--negative)" }} />
-              <span style={{ fontFamily: "var(--font-body)", fontSize: "10px", fontWeight: 600, color: "var(--text-muted)", whiteSpace: "nowrap" }}>
-                Firewall
-              </span>
+              <FirewallIcon style={{ width: "12px", height: "12px", color: firewallColor }} />
+              <span style={{ fontFamily: "var(--font-body)", fontSize: "10px", fontWeight: 600, color: "var(--text-muted)", whiteSpace: "nowrap" }}>Firewall</span>
             </div>
           </>
         ) : isTablet ? (
-          // Tablet — no progress bars
           <>
             <Metric icon={Cpu}         value={`${stats.cpu}%`}                            valueColor={cpuColor}  showBar={false} />
             <Sep />
@@ -156,7 +152,7 @@ export function StatusBar() {
             <Metric icon={HardDrive}   value={`${diskPct.toFixed(0)}%`}                   valueColor={diskColor} showBar={false} />
             <Sep />
             <div style={{ display: "flex", alignItems: "center", gap: "5px", flexShrink: 0 }}>
-              <FirewallIcon style={{ width: "12px", height: "12px", color: stats.firewallActive ? "var(--positive)" : "var(--negative)" }} />
+              <FirewallIcon style={{ width: "12px", height: "12px", color: firewallColor }} />
               <span style={{ fontFamily: "var(--font-body)", fontSize: "10px", fontWeight: 600, color: "var(--text-muted)", whiteSpace: "nowrap" }}>Firewall</span>
             </div>
             <Sep />
@@ -166,14 +162,13 @@ export function StatusBar() {
             </div>
           </>
         ) : (
-          // Desktop — full with progress bars
           <>
             <Metric icon={Cpu}         label="CPU"  value={`${stats.cpu}%`}                            valueColor={cpuColor}  barPercent={stats.cpu} barColor={cpuColor} />
             <Metric icon={MemoryStick} label="RAM"  value={`${stats.ram.used.toFixed(1)}/${stats.ram.total}GB`} valueColor={ramColor}  barPercent={ramPct}   barColor={ramColor} />
             <Metric icon={HardDrive}   label="DISK" value={`${diskPct.toFixed(0)}%`}                   valueColor={diskColor} barPercent={diskPct}  barColor={diskColor} />
             <Sep />
             <div style={{ display: "flex", alignItems: "center", gap: "5px", flexShrink: 0 }}>
-              <FirewallIcon style={{ width: "12px", height: "12px", color: stats.firewallActive ? "var(--positive)" : "var(--negative)" }} />
+              <FirewallIcon style={{ width: "12px", height: "12px", color: firewallColor }} />
               <span style={{ fontFamily: "var(--font-body)", fontSize: "10px", fontWeight: 600, letterSpacing: "1px", color: "var(--text-muted)", whiteSpace: "nowrap" }}>Firewall</span>
             </div>
             <Sep />
