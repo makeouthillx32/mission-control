@@ -1,26 +1,26 @@
 // src/components/ClientLayout.tsx
 "use client";
 
+import { usePathname } from "next/navigation";
 import { Sidebar } from "@/components/Layouts/sidebar";
 import { SidebarProvider } from "@/components/Layouts/sidebar/sidebar-context";
 import { TopBar } from "@/components/Layouts/dashboard";
 import { StatusBar } from "@/components/Layouts/statusbar";
 import AccessibilityOverlay from "@/components/Layouts/overlays/accessibility/accessibility";
+import { OfficeProvider, OfficeSkeleton, OfficeMainOverlay, OfficeExtOverlay } from "@/components/Layouts/overlays/office";
 import { useSidebarContext } from "@/components/Layouts/sidebar/sidebar-context";
 
 function LayoutShell({ children }: { children: React.ReactNode }) {
   const { isOpen, isMobile } = useSidebarContext();
+  const pathname = usePathname();
+  const isOfficePage = pathname === "/office";
 
-  // On desktop: sidebar is fixed 68px wide when open, 0px when closed.
-  // Content area needs a matching left margin so it's never hidden behind the sidebar.
-  // On mobile: sidebar overlays content (fixed position), no margin needed.
   const sidebarOffset = !isMobile && isOpen ? "68px" : "0px";
 
   return (
     <div style={{ minHeight: "100vh", backgroundColor: "var(--bg)" }}>
       <Sidebar />
 
-      {/* Content column — offset by sidebar width on desktop */}
       <div
         style={{
           marginLeft: sidebarOffset,
@@ -42,9 +42,18 @@ function LayoutShell({ children }: { children: React.ReactNode }) {
         </main>
       </div>
 
-      {/* Fixed shell chrome */}
+      {/* Always-on shell overlays */}
       <StatusBar />
       <AccessibilityOverlay />
+
+      {/* Office overlays — only on /office, state shared via OfficeProvider */}
+      {isOfficePage && (
+        <OfficeProvider>
+          <OfficeSkeleton />
+          <OfficeMainOverlay />
+          <OfficeExtOverlay />
+        </OfficeProvider>
+      )}
     </div>
   );
 }
