@@ -19,7 +19,6 @@ export function MenuItem({ href, label, icon: Icon, isActive, onNavigate }: Menu
   const showTooltip = () => {
     if (linkRef.current) {
       const rect = linkRef.current.getBoundingClientRect();
-      // Center tooltip vertically on the item
       setTooltipY(rect.top + rect.height / 2);
     }
   };
@@ -78,14 +77,13 @@ export function MenuItem({ href, label, icon: Icon, isActive, onNavigate }: Menu
         </span>
       </Link>
 
-      {/* Tooltip — position:fixed so it escapes overflow:hidden on the sidebar */}
+      {/* Tooltip rendered at fixed position — escapes overflow:hidden on sidebar */}
       {tooltipY !== null && (
         <div
           role="tooltip"
           style={{
             position: "fixed",
-            // 68px sidebar + 8px gap
-            left: "76px",
+            left: "76px",   // sidebar width (68px) + 8px gap
             top: tooltipY,
             transform: "translateY(-50%)",
             padding: "6px 12px",
@@ -97,7 +95,6 @@ export function MenuItem({ href, label, icon: Icon, isActive, onNavigate }: Menu
             backgroundColor: "var(--surface-elevated)",
             border: "1px solid hsl(var(--border))",
             color: "var(--text-primary)",
-            // Above everything including statusbar
             zIndex: 10001,
             boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
           }}
