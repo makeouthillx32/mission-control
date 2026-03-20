@@ -4,7 +4,10 @@ import { useOfficeContext } from "./context";
 
 export function OfficeSkeleton() {
   const ctx = useOfficeContext();
-  if (!ctx || !ctx.loading) return null;
+  // Guard BEFORE any property access — ctx is null on every non-office page
+  if (!ctx) return null;
+  if (!ctx.loading) return null;
+
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 9998, display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(17,24,39,0.85)", pointerEvents: "none" }}>
       <div style={{ textAlign: "center" }}>

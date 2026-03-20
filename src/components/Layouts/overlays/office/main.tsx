@@ -5,10 +5,10 @@ import AgentPanel from "@/components/Office3D/AgentPanel";
 
 export function OfficeMainOverlay() {
   const ctx = useOfficeContext();
+  // Guard BEFORE any property access — ctx is null on every non-office page
   if (!ctx) return null;
 
   const { controlMode, setControlMode, agents, activeCount, selectedAgent, setSelectedAgent, getState } = ctx;
-
   const selected = selectedAgent ? agents.find(a => a.id === selectedAgent) : null;
 
   return (
