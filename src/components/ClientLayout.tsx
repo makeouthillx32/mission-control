@@ -6,7 +6,12 @@ import { SidebarProvider } from "@/components/Layouts/sidebar/sidebar-context";
 import { TopBar } from "@/components/Layouts/dashboard";
 import { StatusBar } from "@/components/Layouts/statusbar";
 import AccessibilityOverlay from "@/components/Layouts/overlays/accessibility/accessibility";
-import { OfficeSkeleton, OfficeMainOverlay, OfficeExtOverlay } from "@/components/Layouts/overlays/office";
+import {
+  OfficeSkeleton,
+  OfficeMainOverlay,
+  OfficeAgentPanel,
+  OfficeExtOverlay,
+} from "@/components/Layouts/overlays/office";
 import { useSidebarContext } from "@/components/Layouts/sidebar/sidebar-context";
 
 function LayoutShell({ children }: { children: React.ReactNode }) {
@@ -42,12 +47,10 @@ function LayoutShell({ children }: { children: React.ReactNode }) {
       <StatusBar />
       <AccessibilityOverlay />
 
-      {/* Office overlays — always mounted but self-guard via useOfficeContext() returning null
-          when OfficeProvider isn't in the tree (every page except /office).
-          On /office, OfficeProvider is mounted by office/page.tsx which wraps the entire
-          page subtree, making context available here too since we're in the same React tree. */}
+      {/* Office overlay stack — all self-guard via pathname + store state */}
       <OfficeSkeleton />
       <OfficeMainOverlay />
+      <OfficeAgentPanel />
       <OfficeExtOverlay />
     </div>
   );

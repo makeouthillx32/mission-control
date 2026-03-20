@@ -1,15 +1,12 @@
 // src/components/Layouts/overlays/office/ext.tsx
 "use client";
-import { useOfficeContext } from "./context";
+import { useOfficeStore } from "./store";
 
 export function OfficeExtOverlay() {
-  const ctx = useOfficeContext();
-  // Guard BEFORE any property access — ctx is null on every non-office page
-  if (!ctx) return null;
-
-  const { interactionModal, setInteractionModal, agents, activeCount } = ctx;
+  const { interactionModal, setInteractionModal, agents, agentStates } = useOfficeStore();
   if (!interactionModal) return null;
 
+  const activeCount = Object.values(agentStates).filter(s => s.status === "working").length;
   const titles = { memory: "📁 Memory Browser", roadmap: "📋 Roadmap & Planning", energy: "☕ Agent Energy Dashboard" };
 
   return (
@@ -20,7 +17,7 @@ export function OfficeExtOverlay() {
       <div style={{ backgroundColor: "#111827", border: "1px solid #eab308", borderRadius: "12px", padding: "32px", maxWidth: "560px", width: "100%", maxHeight: "80vh", overflowY: "auto", boxShadow: "0 25px 50px rgba(0,0,0,0.5)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
           <h2 style={{ fontFamily: "var(--font-heading)", fontSize: "20px", fontWeight: 700, color: "#eab308", margin: 0 }}>{titles[interactionModal]}</h2>
-          <button onClick={() => setInteractionModal(null)} style={{ background: "none", border: "none", color: "#9ca3af", fontSize: "28px", lineHeight: 1, cursor: "pointer", padding: "0 4px" }}>×</button>
+          <button onClick={() => setInteractionModal(null)} style={{ background: "none", border: "none", color: "#9ca3af", fontSize: "28px", lineHeight: 1, cursor: "pointer" }}>×</button>
         </div>
 
         <div style={{ fontFamily: "var(--font-body)", color: "#d1d5db", display: "flex", flexDirection: "column", gap: "16px" }}>

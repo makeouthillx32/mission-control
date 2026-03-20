@@ -3,8 +3,10 @@
 
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Sky, Environment } from '@react-three/drei';
-import { Suspense, useState } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { Vector3 } from 'three';
+import { DESK_POSITIONS, FALLBACK_COLORS } from './agentsConfig';
+import type { AgentConfig } from './agentsConfig';
 import AgentDesk from './AgentDesk';
 import Floor from './Floor';
 import Walls from './Walls';
@@ -16,21 +18,55 @@ import PlantPot from './PlantPot';
 import WallClock from './WallClock';
 import FirstPersonControls from './FirstPersonControls';
 import MovingAvatar from './MovingAvatar';
-import { useOfficeContext } from '@/components/Layouts/overlays/office';
+import { officeStore, useOfficeStore } from '@/components/Layouts/overlays/office/store';
+
+interface OfficeAgent {
+  id: string; name: string; emoji: string; color: string;
+  role: string; currentTask: string; isActive: boolean;
+}
 
 export default function Office3D() {
-  const ctx = useOfficeContext();
-
-  // Should never be null here since office/page.tsx wraps in OfficeProvider,
-  // but guard defensively so prerender doesn't crash.
-  const controlMode        = ctx?.controlMode ?? 'orbit';
-  const agents             = ctx?.agents ?? [];
-  const loading            = ctx?.loading ?? true;
-  const getState           = ctx?.getState ?? ((id: string) => ({ id, status: 'idle' as const }));
-  const setSelectedAgent   = ctx?.setSelectedAgent ?? (() => {});
-  const setInteractionModal = ctx?.setInteractionModal ?? (() => {});
-
+  const { controlMode, agents, agentStates, loading, selectedAgent } = useOfficeStore();
   const [avatarPositions, setAvatarPositions] = useState<Map<string, any>>(new Map());
+
+  // Fetch agent data and write to store
+  useEffect(() => {
+    async function fetchOffice() {
+      try {
+        const res = await fetch('/api/office');
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        const raw: OfficeAgent[] = data.agents || [];
+
+        const configs: AgentConfig[] = raw.map((a, i) => ({
+          id: a.id, name: a.name, emoji: a.emoji,
+          color: a.color || FALLBACK_COLORS[i % FALLBACK_COLORS.length],
+          role: a.role,
+          position: DESK_POSITIONS[i] ?? ([0, 0, i * 3] as [number, number, number]),
+        }));
+
+        const states: Record<string, any> = {};
+        for (const a of raw) {
+          states[a.id] = { id: a.id, status: a.isActive ? 'working' : 'idle',
+            currentTask: a.currentTask, model: 'sonnet',
+            tokensPerHour: 0, tasksInQueue: 0, uptime: 0 };
+        }
+
+        officeStore.setAgents(configs);
+        officeStore.setAgentStates(states);
+      } catch { /* silent */ } finally {
+        officeStore.setLoading(false);
+      }
+    }
+
+    fetchOffice();
+    const t = setInterval(fetchOffice, 30_000);
+    // Reset store on unmount (navigating away from /office)
+    return () => { clearInterval(t); officeStore.reset(); };
+  }, []);
+
+  const getState = (id: string) =>
+    agentStates[id] ?? { id, status: 'idle' };
 
   const obstacles = [
     ...agents.map(a => ({ position: new Vector3(a.position[0], 0, a.position[2]), radius: 1.5 })),
@@ -49,12 +85,7 @@ export default function Office3D() {
         gl={{ antialias: true, alpha: false }}
         style={{ width: '100%', height: '100%' }}
       >
-        <Suspense fallback={
-          <mesh>
-            <boxGeometry args={[2, 2, 2]} />
-            <meshStandardMaterial color="orange" />
-          </mesh>
-        }>
+        <Suspense fallback={<mesh><boxGeometry args={[2,2,2]} /><meshStandardMaterial color="orange" /></mesh>}>
           <Lights />
           <Sky sunPosition={[100, 20, 100]} />
           <Environment preset="sunset" />
@@ -66,8 +97,8 @@ export default function Office3D() {
               key={agent.id}
               agent={agent}
               state={getState(agent.id)}
-              onClick={() => setSelectedAgent(agent.id)}
-              isSelected={false}
+              onClick={() => officeStore.setSelectedAgent(agent.id)}
+              isSelected={selectedAgent === agent.id}
             />
           ))}
 
@@ -85,23 +116,17 @@ export default function Office3D() {
             />
           ))}
 
-          <FileCabinet   position={[-8, 0,   -5]} onClick={() => setInteractionModal('memory')} />
-          <Whiteboard    position={[0,  0,   -8]} rotation={[0, 0, 0]} onClick={() => setInteractionModal('roadmap')} />
-          <CoffeeMachine position={[8,  0.8, -5]} onClick={() => setInteractionModal('energy')} />
+          <FileCabinet   position={[-8, 0,   -5]} onClick={() => officeStore.setInteractionModal('memory')} />
+          <Whiteboard    position={[0,  0,   -8]} rotation={[0,0,0]} onClick={() => officeStore.setInteractionModal('roadmap')} />
+          <CoffeeMachine position={[8,  0.8, -5]} onClick={() => officeStore.setInteractionModal('energy')} />
           <PlantPot position={[-7, 0, 6]} size="large" />
           <PlantPot position={[7,  0, 6]} size="medium" />
           <PlantPot position={[-9, 0, 0]} size="small" />
           <PlantPot position={[9,  0, 0]} size="small" />
-          <WallClock position={[0, 2.5, -8.4]} rotation={[0, 0, 0]} />
+          <WallClock position={[0, 2.5, -8.4]} rotation={[0,0,0]} />
 
           {controlMode === 'orbit' ? (
-            <OrbitControls
-              enableDamping
-              dampingFactor={0.05}
-              minDistance={5}
-              maxDistance={30}
-              maxPolarAngle={Math.PI / 2.2}
-            />
+            <OrbitControls enableDamping dampingFactor={0.05} minDistance={5} maxDistance={30} maxPolarAngle={Math.PI / 2.2} />
           ) : (
             <FirstPersonControls moveSpeed={5} />
           )}

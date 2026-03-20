@@ -1,13 +1,10 @@
 // src/components/Layouts/overlays/office/skeleton.tsx
 "use client";
-import { useOfficeContext } from "./context";
+import { useOfficeStore } from "./store";
 
 export function OfficeSkeleton() {
-  const ctx = useOfficeContext();
-  // Guard BEFORE any property access — ctx is null on every non-office page
-  if (!ctx) return null;
-  if (!ctx.loading) return null;
-
+  const { loading } = useOfficeStore();
+  if (!loading) return null;
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 9998, display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(17,24,39,0.85)", pointerEvents: "none" }}>
       <div style={{ textAlign: "center" }}>
