@@ -4,13 +4,15 @@ import { useOfficeContext } from "./context";
 import AgentPanel from "@/components/Office3D/AgentPanel";
 
 export function OfficeMainOverlay() {
-  const { controlMode, setControlMode, agentCount: _, activeCount, agents, agentStates, selectedAgent, setSelectedAgent, getState } = useOfficeContext();
-  const agentCount = agents.length;
+  const ctx = useOfficeContext();
+  if (!ctx) return null;
+
+  const { controlMode, setControlMode, agents, activeCount, selectedAgent, setSelectedAgent, getState } = ctx;
+
   const selected = selectedAgent ? agents.find(a => a.id === selectedAgent) : null;
 
   return (
     <>
-      {/* Controls panel — fixed, top-left, above statusbar, below topbar */}
       <div style={{
         position: "fixed",
         top: "calc(var(--topbar-h, 48px) + 16px)",
@@ -25,25 +27,17 @@ export function OfficeMainOverlay() {
         minWidth: "180px",
         border: "1px solid rgba(255,255,255,0.08)",
       }}>
-        <h2 style={{ fontFamily: "var(--font-heading)", fontSize: "15px", fontWeight: 700, marginBottom: "10px", margin: "0 0 10px" }}>🏢 The Office</h2>
+        <h2 style={{ fontFamily: "var(--font-heading)", fontSize: "15px", fontWeight: 700, margin: "0 0 10px" }}>🏢 The Office</h2>
         <div style={{ fontFamily: "var(--font-body)", fontSize: "12px", lineHeight: 1.6, marginBottom: "10px", color: "rgba(255,255,255,0.85)" }}>
           <p style={{ margin: 0 }}><strong>Mode: {controlMode === "orbit" ? "🖱️ Orbit" : "🎮 FPS"}</strong></p>
           {controlMode === "orbit" ? (
-            <>
-              <p style={{ margin: 0 }}>🖱️ Drag: Rotate</p>
-              <p style={{ margin: 0 }}>🔄 Scroll: Zoom</p>
-              <p style={{ margin: 0 }}>👆 Click desk: Agent info</p>
-            </>
+            <><p style={{ margin: 0 }}>🖱️ Drag: Rotate</p><p style={{ margin: 0 }}>🔄 Scroll: Zoom</p><p style={{ margin: 0 }}>👆 Click desk: Agent info</p></>
           ) : (
-            <>
-              <p style={{ margin: 0 }}>Click to lock cursor</p>
-              <p style={{ margin: 0 }}>WASD: Move · Mouse: Look</p>
-              <p style={{ margin: 0 }}>ESC: Unlock</p>
-            </>
+            <><p style={{ margin: 0 }}>Click to lock cursor</p><p style={{ margin: 0 }}>WASD: Move · Mouse: Look</p><p style={{ margin: 0 }}>ESC: Unlock</p></>
           )}
         </div>
         <p style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: "rgba(255,255,255,0.5)", margin: "0 0 10px" }}>
-          {agentCount} agents · {activeCount} active
+          {agents.length} agents · {activeCount} active
         </p>
         <button
           onClick={() => setControlMode(controlMode === "orbit" ? "fps" : "orbit")}
@@ -53,7 +47,6 @@ export function OfficeMainOverlay() {
         </button>
       </div>
 
-      {/* Agent side panel */}
       {selected && (
         <AgentPanel agent={selected} state={getState(selectedAgent!)} onClose={() => setSelectedAgent(null)} />
       )}

@@ -19,14 +19,16 @@ import MovingAvatar from './MovingAvatar';
 import { useOfficeContext } from '@/components/Layouts/overlays/office';
 
 export default function Office3D() {
-  const {
-    controlMode,
-    agents,
-    loading,
-    getState,
-    setSelectedAgent,
-    setInteractionModal,
-  } = useOfficeContext();
+  const ctx = useOfficeContext();
+
+  // Should never be null here since office/page.tsx wraps in OfficeProvider,
+  // but guard defensively so prerender doesn't crash.
+  const controlMode        = ctx?.controlMode ?? 'orbit';
+  const agents             = ctx?.agents ?? [];
+  const loading            = ctx?.loading ?? true;
+  const getState           = ctx?.getState ?? ((id: string) => ({ id, status: 'idle' as const }));
+  const setSelectedAgent   = ctx?.setSelectedAgent ?? (() => {});
+  const setInteractionModal = ctx?.setInteractionModal ?? (() => {});
 
   const [avatarPositions, setAvatarPositions] = useState<Map<string, any>>(new Map());
 
@@ -40,7 +42,6 @@ export default function Office3D() {
   ];
 
   return (
-    // Fills page-fill container — no fixed/inset-0
     <div style={{ position: 'relative', width: '100%', height: '100%', backgroundColor: '#111827' }}>
       <Canvas
         camera={{ position: [0, 8, 12], fov: 60 }}

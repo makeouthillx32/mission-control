@@ -1,20 +1,16 @@
 // src/components/ClientLayout.tsx
 "use client";
 
-import { usePathname } from "next/navigation";
 import { Sidebar } from "@/components/Layouts/sidebar";
 import { SidebarProvider } from "@/components/Layouts/sidebar/sidebar-context";
 import { TopBar } from "@/components/Layouts/dashboard";
 import { StatusBar } from "@/components/Layouts/statusbar";
 import AccessibilityOverlay from "@/components/Layouts/overlays/accessibility/accessibility";
-import { OfficeProvider, OfficeSkeleton, OfficeMainOverlay, OfficeExtOverlay } from "@/components/Layouts/overlays/office";
+import { OfficeSkeleton, OfficeMainOverlay, OfficeExtOverlay } from "@/components/Layouts/overlays/office";
 import { useSidebarContext } from "@/components/Layouts/sidebar/sidebar-context";
 
 function LayoutShell({ children }: { children: React.ReactNode }) {
   const { isOpen, isMobile } = useSidebarContext();
-  const pathname = usePathname();
-  const isOfficePage = pathname === "/office";
-
   const sidebarOffset = !isMobile && isOpen ? "68px" : "0px";
 
   return (
@@ -46,14 +42,13 @@ function LayoutShell({ children }: { children: React.ReactNode }) {
       <StatusBar />
       <AccessibilityOverlay />
 
-      {/* Office overlays — only on /office, state shared via OfficeProvider */}
-      {isOfficePage && (
-        <OfficeProvider>
-          <OfficeSkeleton />
-          <OfficeMainOverlay />
-          <OfficeExtOverlay />
-        </OfficeProvider>
-      )}
+      {/* Office overlays — always mounted but self-guard via useOfficeContext() returning null
+          when OfficeProvider isn't in the tree (every page except /office).
+          On /office, OfficeProvider is mounted by office/page.tsx which wraps the entire
+          page subtree, making context available here too since we're in the same React tree. */}
+      <OfficeSkeleton />
+      <OfficeMainOverlay />
+      <OfficeExtOverlay />
     </div>
   );
 }

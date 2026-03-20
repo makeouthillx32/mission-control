@@ -26,12 +26,12 @@ interface OfficeContextType {
   getState: (id: string) => AgentState;
 }
 
+// null default — consumers must guard with `if (!ctx) return null`
 const OfficeContext = createContext<OfficeContextType | null>(null);
 
-export function useOfficeContext() {
-  const ctx = useContext(OfficeContext);
-  if (!ctx) throw new Error("useOfficeContext must be used within OfficeProvider");
-  return ctx;
+// Returns null if no provider is present (safe for prerender / non-office pages)
+export function useOfficeContext(): OfficeContextType | null {
+  return useContext(OfficeContext);
 }
 
 export function OfficeProvider({ children }: { children: ReactNode }) {
