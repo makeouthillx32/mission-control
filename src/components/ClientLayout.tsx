@@ -6,38 +6,53 @@ import { SidebarProvider } from "@/components/Layouts/sidebar/sidebar-context";
 import { TopBar } from "@/components/Layouts/dashboard";
 import { StatusBar } from "@/components/Layouts/statusbar";
 import AccessibilityOverlay from "@/components/Layouts/overlays/accessibility/accessibility";
+import { useSidebarContext } from "@/components/Layouts/sidebar/sidebar-context";
+
+function LayoutShell({ children }: { children: React.ReactNode }) {
+  const { isOpen, isMobile } = useSidebarContext();
+
+  // On desktop: sidebar is fixed 68px wide when open, 0px when closed.
+  // Content area needs a matching left margin so it's never hidden behind the sidebar.
+  // On mobile: sidebar overlays content (fixed position), no margin needed.
+  const sidebarOffset = !isMobile && isOpen ? "68px" : "0px";
+
+  return (
+    <div style={{ minHeight: "100vh", backgroundColor: "var(--bg)" }}>
+      <Sidebar />
+
+      {/* Content column — offset by sidebar width on desktop */}
+      <div
+        style={{
+          marginLeft: sidebarOffset,
+          transition: "margin-left 0.2s ease-linear",
+          display: "flex",
+          flexDirection: "column",
+          minHeight: "100vh",
+        }}
+      >
+        <TopBar />
+        <main
+          style={{
+            flex: 1,
+            paddingBottom: "calc(var(--statusbar-h, 32px) + env(safe-area-inset-bottom, 0px))",
+            minHeight: 0,
+          }}
+        >
+          {children}
+        </main>
+      </div>
+
+      {/* Fixed shell chrome */}
+      <StatusBar />
+      <AccessibilityOverlay />
+    </div>
+  );
+}
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   return (
     <SidebarProvider>
-      <div style={{ display: "flex", minHeight: "100vh", backgroundColor: "var(--bg)" }}>
-        <Sidebar />
-
-        {/* Main column — sits to the right of the sidebar */}
-        <div style={{ display: "flex", flexDirection: "column", flex: 1, minWidth: 0 }}>
-          <TopBar />
-
-          {/*
-           * Main content area.
-           * paddingTop: not needed — TopBar is position:sticky so it's in flow.
-           * paddingBottom: clears the fixed StatusBar + iOS safe area.
-           * Pages can use .page-content / .page-fill etc. for their own centering.
-           */}
-          <main
-            style={{
-              flex: 1,
-              paddingBottom: "calc(var(--statusbar-h) + env(safe-area-inset-bottom, 0px))",
-              minHeight: 0,
-            }}
-          >
-            {children}
-          </main>
-        </div>
-      </div>
-
-      {/* Fixed shell chrome — always on top */}
-      <StatusBar />
-      <AccessibilityOverlay />
+      <LayoutShell>{children}</LayoutShell>
     </SidebarProvider>
   );
 }

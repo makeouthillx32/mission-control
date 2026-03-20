@@ -25,35 +25,41 @@ export function Sidebar() {
       <aside
         data-layout="sidebar"
         style={{
+          // Always fixed — never sticky.
+          // sticky breaks when any ancestor has overflow:hidden (page-fill, canvas pages, etc.)
+          // fixed always works regardless of page content.
+          position: "fixed",
+          top: 0,
+          left: 0,
+          bottom: 0,
+          // Width animates open/closed
           width: isOpen ? "68px" : "0px",
           overflow: "hidden",
           transition: "width 0.2s ease-linear",
           borderRight: isOpen ? "1px solid hsl(var(--border))" : "none",
           backgroundColor: "var(--surface)",
-          position: isMobile ? "fixed" : "sticky",
-          top: 0,
-          bottom: isMobile ? 0 : undefined,
-          height: "100vh",
-          zIndex: isMobile ? 50 : undefined,
+          // High enough to beat Three.js canvas (auto stacking context) and page content
+          // but below topbar (z-index 20 sticky header would be above, so we match it)
+          zIndex: 45,
           flexShrink: 0,
         }}
         aria-label="Main navigation"
-        aria-hidden={!isOpen}
       >
-        {/* Inner container fixed at 68px */}
-        <div style={{
-          width: "68px",
-          height: "100%",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          padding: "12px 6px",
-        }}>
-
+        {/* Inner container — always 68px wide, clips via parent overflow:hidden */}
+        <div
+          style={{
+            width: "68px",
+            height: "100%",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            padding: "12px 6px",
+          }}
+        >
           {/* X close button — mobile only */}
           {isMobile && (
             <button
-              onClick={toggleSidebar}
+              onClick={() => setIsOpen(false)}
               aria-label="Close menu"
               style={{
                 display: "flex",
@@ -75,20 +81,21 @@ export function Sidebar() {
           )}
 
           {/* Scrollable nav items */}
-          <div style={{
-            flex: 1,
-            overflowY: "auto",
-            overflowX: "hidden",
-            width: "100%",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: "4px",
-            // Hide scrollbar visually but keep it functional
-            scrollbarWidth: "none",
-            msOverflowStyle: "none",
-          }}
+          <div
             className="sidebar-scroll"
+            style={{
+              flex: 1,
+              overflowY: "auto",
+              overflowX: "hidden",
+              width: "100%",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: "4px",
+              paddingBottom: "8px",
+              scrollbarWidth: "none",
+              msOverflowStyle: "none",
+            }}
           >
             {NAV_ITEMS.map((item) => {
               const isActive =
@@ -106,15 +113,10 @@ export function Sidebar() {
               );
             })}
           </div>
-
         </div>
       </aside>
 
-      <style>{`
-        .sidebar-scroll::-webkit-scrollbar {
-          display: none;
-        }
-      `}</style>
+      <style>{`.sidebar-scroll::-webkit-scrollbar { display: none; }`}</style>
     </>
   );
 }
