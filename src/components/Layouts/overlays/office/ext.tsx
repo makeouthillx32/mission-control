@@ -3,23 +3,20 @@
 import { useOfficeStore } from "./store";
 
 export function OfficeExtOverlay() {
-  const { interactionModal, setInteractionModal, agents, agentStates } = useOfficeStore();
-  if (!interactionModal) return null;
+  const { active, interactionModal, setInteractionModal, agents, agentStates } = useOfficeStore();
+  if (!active || !interactionModal) return null;
 
   const activeCount = Object.values(agentStates).filter(s => s.status === "working").length;
   const titles = { memory: "📁 Memory Browser", roadmap: "📋 Roadmap & Planning", energy: "☕ Agent Energy Dashboard" };
 
   return (
-    <div
-      onClick={(e) => { if (e.target === e.currentTarget) setInteractionModal(null); }}
-      style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.80)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9997, padding: "16px" }}
-    >
+    <div onClick={(e) => { if (e.target === e.currentTarget) setInteractionModal(null); }}
+      style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.80)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9997, padding: "16px" }}>
       <div style={{ backgroundColor: "#111827", border: "1px solid #eab308", borderRadius: "12px", padding: "32px", maxWidth: "560px", width: "100%", maxHeight: "80vh", overflowY: "auto", boxShadow: "0 25px 50px rgba(0,0,0,0.5)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
           <h2 style={{ fontFamily: "var(--font-heading)", fontSize: "20px", fontWeight: 700, color: "#eab308", margin: 0 }}>{titles[interactionModal]}</h2>
           <button onClick={() => setInteractionModal(null)} style={{ background: "none", border: "none", color: "#9ca3af", fontSize: "28px", lineHeight: 1, cursor: "pointer" }}>×</button>
         </div>
-
         <div style={{ fontFamily: "var(--font-body)", color: "#d1d5db", display: "flex", flexDirection: "column", gap: "16px" }}>
           {interactionModal === "memory" && (<>
             <p style={{ fontSize: "15px", margin: 0 }}>🧠 Access workspace memories and files</p>
@@ -48,7 +45,6 @@ export function OfficeExtOverlay() {
             <p style={{ fontSize: "12px", color: "#6b7280", fontStyle: "italic", margin: 0 }}>Live data from OpenClaw gateway</p>
           </>)}
         </div>
-
         <button onClick={() => setInteractionModal(null)} style={{ marginTop: "24px", width: "100%", backgroundColor: "#eab308", color: "#000", fontFamily: "var(--font-body)", fontSize: "14px", fontWeight: 700, padding: "12px", borderRadius: "8px", border: "none", cursor: "pointer" }}>
           Close
         </button>

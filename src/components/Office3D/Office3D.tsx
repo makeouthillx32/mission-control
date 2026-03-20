@@ -4,7 +4,7 @@
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Sky, Environment } from '@react-three/drei';
 import { Suspense, useState, useEffect } from 'react';
-import { Vector3 } from 'three';
+import { Vector3, PCFShadowMap } from 'three';
 import { DESK_POSITIONS, FALLBACK_COLORS } from './agentsConfig';
 import type { AgentConfig } from './agentsConfig';
 import AgentDesk from './AgentDesk';
@@ -29,8 +29,11 @@ export default function Office3D() {
   const { controlMode, agents, agentStates, loading, selectedAgent } = useOfficeStore();
   const [avatarPositions, setAvatarPositions] = useState<Map<string, any>>(new Map());
 
-  // Fetch agent data and write to store
   useEffect(() => {
+    // Mark as active — overlays become visible
+    officeStore.setActive(true);
+    officeStore.setLoading(true);
+
     async function fetchOffice() {
       try {
         const res = await fetch('/api/office');
@@ -47,26 +50,34 @@ export default function Office3D() {
 
         const states: Record<string, any> = {};
         for (const a of raw) {
-          states[a.id] = { id: a.id, status: a.isActive ? 'working' : 'idle',
+          states[a.id] = {
+            id: a.id, status: a.isActive ? 'working' : 'idle',
             currentTask: a.currentTask, model: 'sonnet',
-            tokensPerHour: 0, tasksInQueue: 0, uptime: 0 };
+            tokensPerHour: 0, tasksInQueue: 0, uptime: 0,
+          };
         }
 
         officeStore.setAgents(configs);
         officeStore.setAgentStates(states);
-      } catch { /* silent */ } finally {
+      } catch {
+        // Leave agents empty — no crash
+      } finally {
         officeStore.setLoading(false);
       }
     }
 
     fetchOffice();
     const t = setInterval(fetchOffice, 30_000);
-    // Reset store on unmount (navigating away from /office)
-    return () => { clearInterval(t); officeStore.reset(); };
-  }, []);
 
-  const getState = (id: string) =>
-    agentStates[id] ?? { id, status: 'idle' };
+    return () => {
+      clearInterval(t);
+      // Deactivate — hides all overlays, clears state
+      officeStore.reset();
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty deps — runs once on mount/unmount only
+
+  const getState = (id: string) => agentStates[id] ?? { id, status: 'idle' };
 
   const obstacles = [
     ...agents.map(a => ({ position: new Vector3(a.position[0], 0, a.position[2]), radius: 1.5 })),
@@ -82,10 +93,14 @@ export default function Office3D() {
       <Canvas
         camera={{ position: [0, 8, 12], fov: 60 }}
         shadows
+        // Use PCFShadowMap to silence the PCFSoftShadowMap deprecation warning
+        onCreated={({ gl }) => { gl.shadowMap.type = PCFShadowMap; }}
         gl={{ antialias: true, alpha: false }}
         style={{ width: '100%', height: '100%' }}
       >
-        <Suspense fallback={<mesh><boxGeometry args={[2,2,2]} /><meshStandardMaterial color="orange" /></mesh>}>
+        <Suspense fallback={
+          <mesh><boxGeometry args={[2,2,2]} /><meshStandardMaterial color="orange" /></mesh>
+        }>
           <Lights />
           <Sky sunPosition={[100, 20, 100]} />
           <Environment preset="sunset" />

@@ -3,8 +3,10 @@
 import { useOfficeStore } from "./store";
 
 export function OfficeSkeleton() {
-  const { loading } = useOfficeStore();
-  if (!loading) return null;
+  const { active, loading } = useOfficeStore();
+  // Only show when Office3D is mounted AND actively loading
+  if (!active || !loading) return null;
+
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 9998, display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(17,24,39,0.85)", pointerEvents: "none" }}>
       <div style={{ textAlign: "center" }}>
