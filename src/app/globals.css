@@ -12,37 +12,60 @@
 
 @layer base {
   :root {
-    /* ── unenterOS surface tokens → aliased to DB shadcn tokens ── */
+    /* ─────────────────────────────────────────────────────────
+       LAYOUT RULE SYSTEM
+       These are the single source of truth for shell dimensions.
+       Every page that needs to account for the shell uses these.
+       ───────────────────────────────────────────────────────── */
+
+    /* Shell chrome heights */
+    --topbar-h:    48px;
+    --statusbar-h: 32px;
+
+    /* Sidebar width — 0 when collapsed on mobile */
+    --sidebar-w:   68px;
+
+    /* Page content area — max width + gutter */
+    --page-max-width: 1400px;
+    --page-padding:   24px;
+    --page-padding-sm: 16px; /* used at mobile breakpoints */
+
+    /* Combined offset shortcuts — use these in pages */
+    --content-top:    var(--topbar-h);                                            /* top of scrollable area */
+    --content-bottom: calc(var(--statusbar-h) + env(safe-area-inset-bottom, 0px)); /* above statusbar */
+
+    /* ─────────────────────────────────────────────────────────
+       SURFACE TOKENS → aliased to DB shadcn tokens
+       ───────────────────────────────────────────────────────── */
     --bg:               hsl(var(--background));
     --surface:          hsl(var(--card));
     --surface-elevated: hsl(var(--popover));
     --surface-hover:    hsl(var(--accent));
     --card-elevated:    hsl(var(--popover));
 
-    /* ── unenterOS text tokens → aliased to DB shadcn tokens ── */
+    /* TEXT TOKENS */
     --text-primary:   hsl(var(--foreground));
     --text-secondary: hsl(var(--muted-foreground));
     --text-muted:     hsl(var(--muted-foreground));
 
-    /* ── unenterOS accent tokens → aliased to DB shadcn tokens ── */
+    /* ACCENT TOKENS */
     --accent-soft:  hsl(var(--accent));
     --accent-hover: hsl(var(--accent-foreground));
     --accent-muted: hsl(var(--muted));
 
-    /* ── Border ── */
     --border-strong: hsl(var(--border));
 
-    /* ── Typography — uses Next.js font variables ── */
+    /* TYPOGRAPHY */
     --font-heading: var(--font-sora),      system-ui, sans-serif;
     --font-body:    var(--font-inter),     system-ui, sans-serif;
     --font-mono:    var(--font-jetbrains), monospace;
 
-    /* ── Border radius aliases ── */
+    /* RADIUS ALIASES */
     --radius-sm: calc(var(--radius) - 4px);
     --radius-md: var(--radius);
     --radius-lg: calc(var(--radius) + 4px);
 
-    /* ── Z-index scale ── */
+    /* Z-INDEX SCALE */
     --z-page:       10;
     --z-header:     20;
     --z-dropdown:   30;
@@ -51,12 +74,11 @@
     --z-overlay:   100;
     --z-transition: 9000;
 
-    /* ── Animation origin for view transitions ── */
+    /* ANIMATION ORIGIN */
     --x: 50%;
     --y: 50%;
 
-    /* ── Semantic colors (light mode)
-          No shadcn equivalent — defined here with light/dark overrides ── */
+    /* SEMANTIC COLORS — light mode */
     --positive:      #3a9d6e;
     --positive-soft: rgba(58, 157, 110, 0.12);
     --negative:      #d94f3a;
@@ -71,55 +93,106 @@
     --error:      var(--negative);
     --error-bg:   var(--negative-soft);
 
-    /* ── Activity type colors (light mode) ── */
-    --type-file:        #4a9ab5;
-    --type-file-bg:     rgba(74, 154, 181, 0.12);
-    --type-search:      #b8860b;
-    --type-search-bg:   rgba(184, 134, 11, 0.12);
-    --type-message:     #3a9d6e;
-    --type-message-bg:  rgba(58, 157, 110, 0.12);
-    --type-command:     #7a5ca8;
-    --type-command-bg:  rgba(122, 92, 168, 0.12);
-    --type-cron:        #b05a28;
-    --type-cron-bg:     rgba(176, 90, 40, 0.12);
-    --type-security:    #d94f3a;
-    --type-security-bg: rgba(217, 79, 58, 0.12);
-    --type-build:       #b07a20;
-    --type-build-bg:    rgba(176, 122, 32, 0.12);
+    /* ACTIVITY TYPE COLORS */
+    --type-file:        #4a9ab5;  --type-file-bg:     rgba(74,  154, 181, 0.12);
+    --type-search:      #b8860b;  --type-search-bg:   rgba(184, 134,  11, 0.12);
+    --type-message:     #3a9d6e;  --type-message-bg:  rgba(58,  157, 110, 0.12);
+    --type-command:     #7a5ca8;  --type-command-bg:  rgba(122,  92, 168, 0.12);
+    --type-cron:        #b05a28;  --type-cron-bg:     rgba(176,  90,  40, 0.12);
+    --type-security:    #d94f3a;  --type-security-bg: rgba(217,  79,  58, 0.12);
+    --type-build:       #b07a20;  --type-build-bg:    rgba(176, 122,  32, 0.12);
   }
 
-  /* ── Dark mode overrides ── */
+  /* DARK MODE OVERRIDES */
   .dark {
-    --positive:      #4CAF7D;
-    --positive-soft: rgba(76, 175, 125, 0.125);
-    --negative:      #E05C4A;
-    --negative-soft: rgba(224, 92, 74, 0.125);
-    --warning:       #D4A017;
-    --warning-soft:  rgba(212, 160, 23, 0.125);
-    --info:          #5B9BD5;
-    --info-soft:     rgba(91, 155, 213, 0.125);
+    --positive:      #4CAF7D;  --positive-soft: rgba(76,  175, 125, 0.125);
+    --negative:      #E05C4A;  --negative-soft: rgba(224,  92,  74, 0.125);
+    --warning:       #D4A017;  --warning-soft:  rgba(212, 160,  23, 0.125);
+    --info:          #5B9BD5;  --info-soft:     rgba(91,  155, 213, 0.125);
 
-    --type-file:        #7EC8E3;
-    --type-file-bg:     rgba(126, 200, 227, 0.125);
-    --type-search:      #D4A017;
-    --type-search-bg:   rgba(212, 160, 23, 0.125);
-    --type-message:     #4CAF7D;
-    --type-message-bg:  rgba(76, 175, 125, 0.125);
-    --type-command:     #A07CC5;
-    --type-command-bg:  rgba(160, 124, 197, 0.125);
-    --type-cron:        #C0522A;
-    --type-cron-bg:     rgba(192, 82, 42, 0.125);
-    --type-security:    #E05C4A;
-    --type-security-bg: rgba(224, 92, 74, 0.125);
-    --type-build:       #C88A2A;
-    --type-build-bg:    rgba(200, 138, 42, 0.125);
+    --type-file:        #7EC8E3;  --type-file-bg:     rgba(126, 200, 227, 0.125);
+    --type-search:      #D4A017;  --type-search-bg:   rgba(212, 160,  23, 0.125);
+    --type-message:     #4CAF7D;  --type-message-bg:  rgba(76,  175, 125, 0.125);
+    --type-command:     #A07CC5;  --type-command-bg:  rgba(160, 124, 197, 0.125);
+    --type-cron:        #C0522A;  --type-cron-bg:     rgba(192,  82,  42, 0.125);
+    --type-security:    #E05C4A;  --type-security-bg: rgba(224,  92,  74, 0.125);
+    --type-build:       #C88A2A;  --type-build-bg:    rgba(200, 138,  42, 0.125);
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   PAGE LAYOUT UTILITY CLASSES
+   Apply these to page wrappers so content never clips under
+   the fixed topbar or statusbar.
+
+   Usage:
+     <div className="page-content"> ... </div>   ← standard page
+     <div className="page-content-full"> ... </div>  ← full bleed (no padding)
+     <div className="page-centered"> ... </div>   ← centered max-width column
+
+   These are designed to be used INSIDE ClientLayout's <main>.
+   ClientLayout already handles marginTop/marginBottom on main,
+   but these classes give per-page control when needed.
+   ───────────────────────────────────────────────────────────── */
+
+/* Standard page wrapper — padded, centered column */
+.page-content {
+  width: 100%;
+  max-width: var(--page-max-width);
+  margin-left: auto;
+  margin-right: auto;
+  padding: var(--page-padding);
+  /* bottom pad ensures content clears the fixed status bar */
+  padding-bottom: calc(var(--statusbar-h) + var(--page-padding));
+}
+
+/* Full-bleed variant — no side padding, still clears bars */
+.page-content-full {
+  width: 100%;
+  padding-bottom: calc(var(--statusbar-h) + var(--page-padding));
+}
+
+/* Centered column — for settings/forms that want a narrow container */
+.page-centered {
+  width: 100%;
+  max-width: 800px;
+  margin-left: auto;
+  margin-right: auto;
+  padding: var(--page-padding);
+  padding-bottom: calc(var(--statusbar-h) + var(--page-padding));
+}
+
+/* Fills remaining viewport height between topbar and statusbar.
+   Use for full-height panels like terminals, editors, split views. */
+.page-fill {
+  height: calc(100vh - var(--topbar-h) - var(--statusbar-h) - env(safe-area-inset-bottom, 0px));
+  overflow: hidden;
+}
+
+/* Same as page-fill but allows internal scroll */
+.page-fill-scroll {
+  height: calc(100vh - var(--topbar-h) - var(--statusbar-h) - env(safe-area-inset-bottom, 0px));
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: var(--page-padding);
+  padding-bottom: var(--page-padding);
+}
+
+@media (max-width: 849px) {
+  .page-content,
+  .page-content-full,
+  .page-centered,
+  .page-fill-scroll {
+    padding-left:  var(--page-padding-sm);
+    padding-right: var(--page-padding-sm);
+    /* No bottom statusbar clearance needed on mobile since bar is minimal */
+    padding-bottom: calc(var(--statusbar-h) + var(--page-padding-sm));
   }
 }
 
 /* ── View Transition Animation ── */
 @supports (view-transition-name: none) {
-  ::view-transition-old(root),
-  ::view-transition-new(root) {
+  ::view-transition-old(root), ::view-transition-new(root) {
     animation: none;
     mix-blend-mode: normal;
   }
@@ -129,14 +202,8 @@
     animation: reveal 0.4s ease-in-out forwards;
   }
   @keyframes reveal {
-    from {
-      clip-path: circle(0% at var(--x, 50%) var(--y, 50%));
-      opacity: 0.7;
-    }
-    to {
-      clip-path: circle(150% at var(--x, 50%) var(--y, 50%));
-      opacity: 1;
-    }
+    from { clip-path: circle(0% at var(--x, 50%) var(--y, 50%)); opacity: 0.7; }
+    to   { clip-path: circle(150% at var(--x, 50%) var(--y, 50%)); opacity: 1; }
   }
 }
 
@@ -148,17 +215,11 @@
     inset: 0;
     z-index: var(--z-transition);
     pointer-events: none;
-    background: radial-gradient(
-      circle at var(--x, 50%) var(--y, 50%),
-      transparent 0%, transparent 30%, rgba(0,0,0,0.1) 100%
-    );
+    background: radial-gradient(circle at var(--x, 50%) var(--y, 50%), transparent 0%, transparent 30%, rgba(0,0,0,0.1) 100%);
     animation: fallback-reveal 0.4s ease-in-out forwards;
   }
   .dark.theme-transition-fallback::before {
-    background: radial-gradient(
-      circle at var(--x, 50%) var(--y, 50%),
-      transparent 0%, transparent 30%, rgba(255,255,255,0.1) 100%
-    );
+    background: radial-gradient(circle at var(--x, 50%) var(--y, 50%), transparent 0%, transparent 30%, rgba(255,255,255,0.1) 100%);
   }
   @keyframes fallback-reveal {
     from { opacity: 0; transform: scale(0); }
@@ -169,15 +230,12 @@
 
 .theme-transition-fallback,
 .theme-transition-fallback * {
-  transition: color 0.4s ease-in-out, background-color 0.4s ease-in-out,
-    border-color 0.4s ease-in-out !important;
+  transition: color 0.4s ease-in-out, background-color 0.4s ease-in-out, border-color 0.4s ease-in-out !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .theme-transition-fallback,
-  .theme-transition-fallback *,
-  ::view-transition-old(root),
-  ::view-transition-new(root) {
+  .theme-transition-fallback, .theme-transition-fallback *,
+  ::view-transition-old(root), ::view-transition-new(root) {
     animation: none !important;
     transition: none !important;
   }

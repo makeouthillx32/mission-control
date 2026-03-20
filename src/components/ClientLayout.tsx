@@ -13,16 +13,30 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       <div style={{ display: "flex", minHeight: "100vh", backgroundColor: "var(--bg)" }}>
         <Sidebar />
 
+        {/* Main column — sits to the right of the sidebar */}
         <div style={{ display: "flex", flexDirection: "column", flex: 1, minWidth: 0 }}>
           <TopBar />
-          <main style={{ flex: 1, padding: "24px" }}>
+
+          {/*
+           * Main content area.
+           * paddingTop: not needed — TopBar is position:sticky so it's in flow.
+           * paddingBottom: clears the fixed StatusBar + iOS safe area.
+           * Pages can use .page-content / .page-fill etc. for their own centering.
+           */}
+          <main
+            style={{
+              flex: 1,
+              paddingBottom: "calc(var(--statusbar-h) + env(safe-area-inset-bottom, 0px))",
+              minHeight: 0,
+            }}
+          >
             {children}
           </main>
-          {/* StatusBar renders null on mobile, fixed bar + spacer on desktop */}
-          <StatusBar />
         </div>
       </div>
 
+      {/* Fixed shell chrome — always on top */}
+      <StatusBar />
       <AccessibilityOverlay />
     </SidebarProvider>
   );

@@ -2,52 +2,59 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Cpu, HardDrive, MemoryStick, ShieldCheck, Clock } from "lucide-react";
+import { Cpu, HardDrive, MemoryStick, ShieldCheck, ShieldOff, Clock } from "lucide-react";
 
 interface SystemStats {
   cpu: number;
   ram: { used: number; total: number };
   disk: { used: number; total: number };
-  vpnActive: boolean;
   firewallActive: boolean;
   activeServices: number;
   totalServices: number;
   uptime: string;
 }
 
-function StatusMetric({
+function Sep() {
+  return (
+    <div style={{ width: "1px", height: "16px", backgroundColor: "var(--border)", flexShrink: 0 }} />
+  );
+}
+
+function Metric({
   icon: Icon,
   label,
   value,
+  valueColor,
   barPercent,
-  color,
+  barColor,
+  showBar = true,
 }: {
   icon: React.ElementType;
-  label: string;
+  label?: string;
   value: string;
+  valueColor?: string;
   barPercent?: number;
-  color?: string;
+  barColor?: string;
+  showBar?: boolean;
 }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: "6px", height: "24px", flexShrink: 0 }}>
-      <Icon style={{ width: "14px", height: "14px", color: "var(--text-muted)", flexShrink: 0 }} />
-      <span style={{ fontFamily: "var(--font-body)", fontSize: "11px", fontWeight: 600, letterSpacing: "1px", color: "var(--text-muted)", whiteSpace: "nowrap" }}>
-        {label}
-      </span>
-      <span style={{ fontFamily: "var(--font-body)", fontSize: "11px", fontWeight: 600, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
+    <div style={{ display: "flex", alignItems: "center", gap: "5px", flexShrink: 0 }}>
+      <Icon style={{ width: "13px", height: "13px", color: "var(--text-muted)", flexShrink: 0 }} />
+      {label && (
+        <span style={{ fontFamily: "var(--font-body)", fontSize: "10px", fontWeight: 600, letterSpacing: "1px", color: "var(--text-muted)", whiteSpace: "nowrap" }}>
+          {label}
+        </span>
+      )}
+      <span style={{ fontFamily: "var(--font-body)", fontSize: "11px", fontWeight: 600, color: valueColor ?? "var(--text-secondary)", whiteSpace: "nowrap" }}>
         {value}
       </span>
-      {barPercent !== undefined && (
-        <div style={{ width: "48px", height: "4px", backgroundColor: "var(--surface-elevated)", borderRadius: "2px", overflow: "hidden", flexShrink: 0 }}>
-          <div style={{ width: `${Math.min(100, barPercent)}%`, height: "100%", backgroundColor: color, borderRadius: "2px" }} />
+      {showBar && barPercent !== undefined && (
+        <div style={{ width: "40px", height: "3px", backgroundColor: "var(--surface-elevated)", borderRadius: "2px", overflow: "hidden", flexShrink: 0 }}>
+          <div style={{ width: `${Math.min(100, barPercent)}%`, height: "100%", backgroundColor: barColor, borderRadius: "2px" }} />
         </div>
       )}
     </div>
   );
-}
-
-function Sep() {
-  return <div style={{ width: "1px", height: "16px", backgroundColor: "var(--border)", flexShrink: 0 }} />;
 }
 
 export function StatusBar() {
@@ -55,14 +62,12 @@ export function StatusBar() {
     cpu: 0,
     ram: { used: 0, total: 4 },
     disk: { used: 0, total: 100 },
-    vpnActive: false,
     firewallActive: true,
     activeServices: 0,
     totalServices: 4,
     uptime: "0d 0h",
   });
 
-  // Track viewport width for responsive content only — never hides the bar
   const [width, setWidth] = useState(1200);
   useEffect(() => {
     const update = () => setWidth(window.innerWidth);
@@ -72,26 +77,28 @@ export function StatusBar() {
   }, []);
 
   useEffect(() => {
-    const fetch_ = async () => {
+    const run = async () => {
       try {
         const res = await fetch("/api/system/stats");
         if (res.ok) setStats(await res.json());
       } catch { /* non-critical */ }
     };
-    fetch_();
-    const t = setInterval(fetch_, 10000);
+    run();
+    const t = setInterval(run, 10000);
     return () => clearInterval(t);
   }, []);
 
-  const cpuColor   = stats.cpu < 60      ? "var(--positive)" : stats.cpu < 85      ? "var(--warning)" : "var(--negative)";
-  const ramPct     = (stats.ram.used  / stats.ram.total)  * 100;
-  const ramColor   = ramPct < 60         ? "var(--positive)" : ramPct < 85          ? "var(--warning)" : "var(--negative)";
-  const diskPct    = (stats.disk.used / stats.disk.total) * 100;
-  const diskColor  = diskPct < 60        ? "var(--positive)" : diskPct < 85         ? "var(--warning)" : "var(--negative)";
+  const cpuColor  = stats.cpu < 60   ? "var(--positive)" : stats.cpu < 85   ? "var(--warning)" : "var(--negative)";
+  const ramPct    = (stats.ram.used  / stats.ram.total)  * 100;
+  const ramColor  = ramPct  < 60     ? "var(--positive)" : ramPct  < 85     ? "var(--warning)" : "var(--negative)";
+  const diskPct   = (stats.disk.used / stats.disk.total) * 100;
+  const diskColor = diskPct < 60     ? "var(--positive)" : diskPct < 85     ? "var(--warning)" : "var(--negative)";
 
-  // Breakpoints for content — bar itself is ALWAYS visible
-  const isCompact  = width < 850;   // collapsed sidebar mode — minimal content
-  const isTablet   = width >= 850 && width < 1200; // sidebar visible but tight
+  const FirewallIcon = stats.firewallActive ? ShieldCheck : ShieldOff;
+
+  // Responsive content breakpoints — bar is ALWAYS rendered
+  const isCompact = width < 850;
+  const isTablet  = width >= 850 && width < 1200;
 
   return (
     <div
@@ -104,105 +111,83 @@ export function StatusBar() {
         height: "32px",
         backgroundColor: "var(--surface)",
         borderTop: "1px solid var(--border)",
-        display: "flex",
-        alignItems: "center",
-        // Safe area for iOS PWA home indicator
-        paddingBottom: "env(safe-area-inset-bottom, 0px)",
-        paddingLeft: "84px",   // sidebar width clearance
-        paddingRight: "16px",
-        gap: "14px",
         zIndex: 40,
-        // Scroll horizontally if viewport is very narrow rather than clipping
+        // Safe area for iOS PWA
+        paddingBottom: "env(safe-area-inset-bottom, 0px)",
         overflowX: "auto",
         overflowY: "hidden",
         scrollbarWidth: "none",
       }}
     >
-      {isCompact ? (
-        // ── Compact: sidebar collapsed, narrow viewport ──
-        // Show only the most critical status at-a-glance
-        <>
-          <div style={{ display: "flex", alignItems: "center", gap: "5px", flexShrink: 0 }}>
-            <Cpu style={{ width: "13px", height: "13px", color: "var(--text-muted)" }} />
-            <span style={{ fontFamily: "var(--font-body)", fontSize: "11px", fontWeight: 600, color: cpuColor, whiteSpace: "nowrap" }}>
-              {stats.cpu}%
+      {/* Inner centered container — matches page max-width */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          height: "32px",
+          maxWidth: "var(--page-max-width, 1400px)",
+          margin: "0 auto",
+          paddingLeft:  "calc(var(--sidebar-width, 68px) + var(--page-padding, 24px))",
+          paddingRight: "var(--page-padding, 24px)",
+          gap: "14px",
+        }}
+      >
+        {isCompact ? (
+          // Collapsed sidebar mode — minimal
+          <>
+            <Metric icon={Cpu}         value={`${stats.cpu}%`}                  valueColor={cpuColor} />
+            <Sep />
+            <Metric icon={MemoryStick} value={`${stats.ram.used.toFixed(1)}GB`} valueColor={ramColor} />
+            <Sep />
+            <div style={{ display: "flex", alignItems: "center", gap: "5px", flexShrink: 0 }}>
+              <FirewallIcon style={{ width: "12px", height: "12px", color: stats.firewallActive ? "var(--positive)" : "var(--negative)" }} />
+              <span style={{ fontFamily: "var(--font-body)", fontSize: "10px", fontWeight: 600, color: "var(--text-muted)", whiteSpace: "nowrap" }}>
+                Firewall
+              </span>
+            </div>
+          </>
+        ) : isTablet ? (
+          // Tablet — no progress bars
+          <>
+            <Metric icon={Cpu}         value={`${stats.cpu}%`}                            valueColor={cpuColor}  showBar={false} />
+            <Sep />
+            <Metric icon={MemoryStick} value={`${stats.ram.used.toFixed(1)}/${stats.ram.total}GB`} valueColor={ramColor}  showBar={false} />
+            <Sep />
+            <Metric icon={HardDrive}   value={`${diskPct.toFixed(0)}%`}                   valueColor={diskColor} showBar={false} />
+            <Sep />
+            <div style={{ display: "flex", alignItems: "center", gap: "5px", flexShrink: 0 }}>
+              <FirewallIcon style={{ width: "12px", height: "12px", color: stats.firewallActive ? "var(--positive)" : "var(--negative)" }} />
+              <span style={{ fontFamily: "var(--font-body)", fontSize: "10px", fontWeight: 600, color: "var(--text-muted)", whiteSpace: "nowrap" }}>Firewall</span>
+            </div>
+            <Sep />
+            <div style={{ display: "flex", alignItems: "center", gap: "5px", flexShrink: 0 }}>
+              <Clock style={{ width: "12px", height: "12px", color: "var(--text-muted)" }} />
+              <span style={{ fontFamily: "var(--font-body)", fontSize: "10px", fontWeight: 500, color: "var(--text-muted)", whiteSpace: "nowrap" }}>{stats.uptime}</span>
+            </div>
+          </>
+        ) : (
+          // Desktop — full with progress bars
+          <>
+            <Metric icon={Cpu}         label="CPU"  value={`${stats.cpu}%`}                            valueColor={cpuColor}  barPercent={stats.cpu} barColor={cpuColor} />
+            <Metric icon={MemoryStick} label="RAM"  value={`${stats.ram.used.toFixed(1)}/${stats.ram.total}GB`} valueColor={ramColor}  barPercent={ramPct}   barColor={ramColor} />
+            <Metric icon={HardDrive}   label="DISK" value={`${diskPct.toFixed(0)}%`}                   valueColor={diskColor} barPercent={diskPct}  barColor={diskColor} />
+            <Sep />
+            <div style={{ display: "flex", alignItems: "center", gap: "5px", flexShrink: 0 }}>
+              <FirewallIcon style={{ width: "12px", height: "12px", color: stats.firewallActive ? "var(--positive)" : "var(--negative)" }} />
+              <span style={{ fontFamily: "var(--font-body)", fontSize: "10px", fontWeight: 600, letterSpacing: "1px", color: "var(--text-muted)", whiteSpace: "nowrap" }}>Firewall</span>
+            </div>
+            <Sep />
+            <span style={{ fontFamily: "var(--font-body)", fontSize: "10px", fontWeight: 500, color: "var(--text-muted)", whiteSpace: "nowrap", flexShrink: 0 }}>
+              SVC {stats.activeServices}/{stats.totalServices}
             </span>
-          </div>
-
-          <Sep />
-
-          <div style={{ display: "flex", alignItems: "center", gap: "5px", flexShrink: 0 }}>
-            <MemoryStick style={{ width: "13px", height: "13px", color: "var(--text-muted)" }} />
-            <span style={{ fontFamily: "var(--font-body)", fontSize: "11px", fontWeight: 600, color: ramColor, whiteSpace: "nowrap" }}>
-              {stats.ram.used.toFixed(1)}GB
-            </span>
-          </div>
-
-          <Sep />
-
-          {/* VPN + UFW dots */}
-          <div style={{ display: "flex", alignItems: "center", gap: "6px", flexShrink: 0 }}>
-            <div style={{ width: "6px", height: "6px", borderRadius: "50%", backgroundColor: stats.vpnActive ? "var(--positive)" : "var(--negative)" }} />
-            <span style={{ fontFamily: "var(--font-body)", fontSize: "10px", fontWeight: 600, letterSpacing: "1px", color: "var(--text-muted)", whiteSpace: "nowrap" }}>VPN</span>
-            <ShieldCheck style={{ width: "12px", height: "12px", color: stats.firewallActive ? "var(--positive)" : "var(--negative)" }} />
-          </div>
-        </>
-      ) : isTablet ? (
-        // ── Tablet: sidebar visible but space is tighter — no progress bars ──
-        <>
-          <div style={{ display: "flex", alignItems: "center", gap: "5px", flexShrink: 0 }}>
-            <Cpu style={{ width: "13px", height: "13px", color: "var(--text-muted)" }} />
-            <span style={{ fontFamily: "var(--font-body)", fontSize: "11px", fontWeight: 600, color: cpuColor, whiteSpace: "nowrap" }}>{stats.cpu}%</span>
-          </div>
-          <Sep />
-          <div style={{ display: "flex", alignItems: "center", gap: "5px", flexShrink: 0 }}>
-            <MemoryStick style={{ width: "13px", height: "13px", color: "var(--text-muted)" }} />
-            <span style={{ fontFamily: "var(--font-body)", fontSize: "11px", fontWeight: 600, color: ramColor, whiteSpace: "nowrap" }}>{stats.ram.used.toFixed(1)}/{stats.ram.total}GB</span>
-          </div>
-          <Sep />
-          <div style={{ display: "flex", alignItems: "center", gap: "5px", flexShrink: 0 }}>
-            <HardDrive style={{ width: "13px", height: "13px", color: "var(--text-muted)" }} />
-            <span style={{ fontFamily: "var(--font-body)", fontSize: "11px", fontWeight: 600, color: diskColor, whiteSpace: "nowrap" }}>{diskPct.toFixed(0)}%</span>
-          </div>
-          <Sep />
-          <div style={{ display: "flex", alignItems: "center", gap: "6px", flexShrink: 0 }}>
-            <div style={{ width: "6px", height: "6px", borderRadius: "50%", backgroundColor: stats.vpnActive ? "var(--positive)" : "var(--negative)" }} />
-            <span style={{ fontFamily: "var(--font-body)", fontSize: "10px", fontWeight: 600, letterSpacing: "1px", color: "var(--text-muted)", whiteSpace: "nowrap" }}>VPN</span>
-            <ShieldCheck style={{ width: "12px", height: "12px", color: stats.firewallActive ? "var(--positive)" : "var(--negative)" }} />
-            <span style={{ fontFamily: "var(--font-body)", fontSize: "10px", fontWeight: 600, letterSpacing: "1px", color: "var(--text-muted)", whiteSpace: "nowrap" }}>UFW</span>
-          </div>
-          <Sep />
-          <div style={{ display: "flex", alignItems: "center", gap: "5px", flexShrink: 0 }}>
-            <Clock style={{ width: "12px", height: "12px", color: "var(--text-muted)" }} />
-            <span style={{ fontFamily: "var(--font-body)", fontSize: "10px", fontWeight: 500, color: "var(--text-muted)", whiteSpace: "nowrap" }}>{stats.uptime}</span>
-          </div>
-        </>
-      ) : (
-        // ── Desktop: full layout with progress bars ──
-        <>
-          <StatusMetric icon={Cpu}        label="CPU"  value={`${stats.cpu}%`}                            barPercent={stats.cpu} color={cpuColor} />
-          <StatusMetric icon={MemoryStick} label="RAM"  value={`${stats.ram.used.toFixed(1)}/${stats.ram.total}GB`} barPercent={ramPct}   color={ramColor} />
-          <StatusMetric icon={HardDrive}  label="DISK" value={`${diskPct.toFixed(0)}%`}                   barPercent={diskPct}   color={diskColor} />
-          <Sep />
-          <div style={{ display: "flex", alignItems: "center", gap: "5px", flexShrink: 0 }}>
-            <div style={{ width: "6px", height: "6px", borderRadius: "50%", backgroundColor: stats.vpnActive ? "var(--positive)" : "var(--negative)" }} />
-            <span style={{ fontFamily: "var(--font-body)", fontSize: "10px", fontWeight: 600, letterSpacing: "1px", color: "var(--text-muted)", whiteSpace: "nowrap" }}>VPN</span>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "5px", flexShrink: 0 }}>
-            <ShieldCheck style={{ width: "12px", height: "12px", color: stats.firewallActive ? "var(--positive)" : "var(--negative)" }} />
-            <span style={{ fontFamily: "var(--font-body)", fontSize: "10px", fontWeight: 600, letterSpacing: "1px", color: "var(--text-muted)", whiteSpace: "nowrap" }}>UFW</span>
-          </div>
-          <Sep />
-          <span style={{ fontFamily: "var(--font-body)", fontSize: "10px", fontWeight: 500, color: "var(--text-muted)", whiteSpace: "nowrap", flexShrink: 0 }}>
-            SVC: {stats.activeServices}/{stats.totalServices}
-          </span>
-          <Sep />
-          <div style={{ display: "flex", alignItems: "center", gap: "5px", flexShrink: 0 }}>
-            <Clock style={{ width: "12px", height: "12px", color: "var(--text-muted)" }} />
-            <span style={{ fontFamily: "var(--font-body)", fontSize: "10px", fontWeight: 500, color: "var(--text-muted)", whiteSpace: "nowrap" }}>Uptime: {stats.uptime}</span>
-          </div>
-        </>
-      )}
+            <Sep />
+            <div style={{ display: "flex", alignItems: "center", gap: "5px", flexShrink: 0 }}>
+              <Clock style={{ width: "12px", height: "12px", color: "var(--text-muted)" }} />
+              <span style={{ fontFamily: "var(--font-body)", fontSize: "10px", fontWeight: 500, color: "var(--text-muted)", whiteSpace: "nowrap" }}>Uptime: {stats.uptime}</span>
+            </div>
+          </>
+        )}
+      </div>
 
       <style>{`[data-layout="statusbar"]::-webkit-scrollbar { display: none; }`}</style>
     </div>
