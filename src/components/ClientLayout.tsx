@@ -18,6 +18,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           <main style={{ flex: 1, padding: "24px" }}>
             {children}
           </main>
+          {/* StatusBar renders null on mobile, fixed bar + spacer on desktop */}
           <StatusBar />
         </div>
       </div>
