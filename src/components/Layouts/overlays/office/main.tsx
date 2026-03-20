@@ -1,13 +1,10 @@
 // src/components/Layouts/overlays/office/main.tsx
 "use client";
-import { usePathname } from "next/navigation";
 import { useOfficeStore } from "./store";
 
 export function OfficeMainOverlay() {
-  const pathname = usePathname();
-  const { controlMode, setControlMode, agents, agentStates, loading } = useOfficeStore();
-
-  if (pathname !== "/office" || loading) return null;
+  const { active, loading, controlMode, setControlMode, agents, agentStates } = useOfficeStore();
+  if (!active || loading) return null;
 
   const activeCount = Object.values(agentStates).filter(s => s.status === "working").length;
 
