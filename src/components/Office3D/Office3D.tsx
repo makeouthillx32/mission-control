@@ -4,7 +4,7 @@
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Sky, Environment } from '@react-three/drei';
 import { Suspense, useState, useEffect } from 'react';
-import { Vector3, PCFShadowMap } from 'three';
+import { Vector3 } from 'three';
 import { DESK_POSITIONS, FALLBACK_COLORS } from './agentsConfig';
 import type { AgentConfig } from './agentsConfig';
 import AgentDesk from './AgentDesk';
@@ -25,12 +25,26 @@ interface OfficeAgent {
   role: string; currentTask: string; isActive: boolean;
 }
 
+// Suppress Three.js deprecation warnings globally — they fire every frame
+// and flood the console with thousands of entries per second.
+if (typeof window !== 'undefined') {
+  const _warn = console.warn.bind(console);
+  console.warn = (...args: any[]) => {
+    const msg = typeof args[0] === 'string' ? args[0] : '';
+    if (
+      msg.includes('PCFSoftShadowMap') ||
+      msg.includes('THREE.Clock') ||
+      msg.includes('Timer instead')
+    ) return;
+    _warn(...args);
+  };
+}
+
 export default function Office3D() {
   const { controlMode, agents, agentStates, loading, selectedAgent } = useOfficeStore();
   const [avatarPositions, setAvatarPositions] = useState<Map<string, any>>(new Map());
 
   useEffect(() => {
-    // Mark as active — overlays become visible
     officeStore.setActive(true);
     officeStore.setLoading(true);
 
@@ -60,7 +74,7 @@ export default function Office3D() {
         officeStore.setAgents(configs);
         officeStore.setAgentStates(states);
       } catch {
-        // Leave agents empty — no crash
+        // silent
       } finally {
         officeStore.setLoading(false);
       }
@@ -71,11 +85,9 @@ export default function Office3D() {
 
     return () => {
       clearInterval(t);
-      // Deactivate — hides all overlays, clears state
       officeStore.reset();
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Empty deps — runs once on mount/unmount only
+  }, []);
 
   const getState = (id: string) => agentStates[id] ?? { id, status: 'idle' };
 
@@ -92,9 +104,9 @@ export default function Office3D() {
     <div style={{ position: 'relative', width: '100%', height: '100%', backgroundColor: '#111827' }}>
       <Canvas
         camera={{ position: [0, 8, 12], fov: 60 }}
-        shadows
-        // Use PCFShadowMap to silence the PCFSoftShadowMap deprecation warning
-        onCreated={({ gl }) => { gl.shadowMap.type = PCFShadowMap; }}
+        // Don't pass `shadows` prop — it forces PCFSoftShadowMap and triggers
+        // a deprecation warning on every single animation frame (1000+/sec).
+        // Shadows are enabled selectively on lights/meshes via castShadow/receiveShadow.
         gl={{ antialias: true, alpha: false }}
         style={{ width: '100%', height: '100%' }}
       >
