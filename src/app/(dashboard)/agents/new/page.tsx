@@ -9,8 +9,8 @@ import { ModelSelector } from "@/components/ModelSelector";
 
 export default function NewAgentPage() {
   const router = useRouter();
-  const { isConnected } = useOpenClaw();
-  const { createAgent, updateAgent } = useOpenClawAgents();
+  const { isConnected, rpc } = useOpenClaw();
+  const { createAgent } = useOpenClawAgents();
 
   const [name, setName] = useState("");
   const [emoji, setEmoji] = useState("🤖");
@@ -28,25 +28,22 @@ export default function NewAgentPage() {
     setSaving(true);
     setError(null);
     try {
-      // Step 1: create — gateway only accepts flat: name, workspace, model
-      // workspace is required by the gateway schema
+      // Step 1: create — gateway only accepts name and workspace
       const slug = name.trim().toLowerCase().replace(/\s+/g, "-");
       const created = await createAgent({
         name: name.trim(),
         workspace: workspace.trim() || `~/clawd-${slug}`,
-        ...(modelId ? { model: modelId } : {}),
       } as any) as any;
 
-      // Step 2: if we have identity fields (emoji / theme), patch them via update
-      if ((emoji && emoji !== "🤖") || theme.trim()) {
-        const agentId = created?.id ?? slug;
-        await updateAgent({
-          id: agentId,
-          identity: {
-            name: name.trim(),
-            ...(emoji ? { emoji } : {}),
-            ...(theme.trim() ? { theme: theme.trim() } : {}),
-          },
+      // Step 2: patch identity via agents.update (flat params, agentId not id)
+      const agentId = created?.id ?? slug;
+      const hasIdentity = (emoji && emoji !== "🤖") || theme.trim();
+      if (hasIdentity) {
+        await rpc("agents.update" as any, {
+          agentId,
+          ...(name.trim() ? { name: name.trim() } : {}),
+          ...(emoji ? { emoji } : {}),
+          ...(theme.trim() ? { theme: theme.trim() } : {}),
         });
       }
 

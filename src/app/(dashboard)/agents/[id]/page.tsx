@@ -10,7 +10,7 @@ import { ModelSelector } from "@/components/ModelSelector";
 export default function EditAgentPage() {
   const params = useParams();
   const router = useRouter();
-  const { isConnected } = useOpenClaw();
+  const { isConnected, rpc } = useOpenClaw();
   const { agents, updateAgent, loading } = useOpenClawAgents();
 
   const agentId = params.id as string;
@@ -41,11 +41,12 @@ export default function EditAgentPage() {
     setSaving(true);
     setError(null);
     try {
-      await updateAgent({
-        id: agentId,
-        identity: { name, emoji, theme },
-        ...(modelId ? { model: modelId } : {}),
-      } as any);
+      await rpc("agents.set-identity" as any, {
+        agentId,
+        ...(name.trim() ? { name: name.trim() } : {}),
+        ...(emoji ? { emoji } : {}),
+        ...(theme.trim() ? { theme: theme.trim() } : {}),
+      });
       router.push("/agents");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save agent");
