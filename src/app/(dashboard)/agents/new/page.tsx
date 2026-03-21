@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useOpenClaw } from "@/contexts/OpenClawContext";
 import { useOpenClawAgents } from "@/hooks/use-openclaw-agents";
 import { ArrowLeft, Save, Loader2 } from "lucide-react";
+import { ModelSelector } from "@/components/ModelSelector";
 
 export default function NewAgentPage() {
   const router = useRouter();
@@ -14,6 +15,8 @@ export default function NewAgentPage() {
   const [name, setName] = useState("");
   const [emoji, setEmoji] = useState("🤖");
   const [theme, setTheme] = useState("");
+  const [workspace, setWorkspace] = useState("");
+  const [modelId, setModelId] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -28,8 +31,10 @@ export default function NewAgentPage() {
       await createAgent({
         name,
         identity: { name, emoji, theme },
-      });
-      router.push("agents");
+        ...(modelId ? { model: { primary: modelId } } : {}),
+        ...(workspace.trim() ? { workspace: workspace.trim() } : {}),
+      } as any);
+      router.push("/agents");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create agent");
     } finally {
@@ -41,77 +46,150 @@ export default function NewAgentPage() {
     <div className="p-6 space-y-6 max-w-2xl">
       <div className="flex items-center gap-3">
         <button
-          onClick={() => router.push("agents")}
+          onClick={() => router.push("/agents")}
           className="p-2 rounded-lg hover:bg-white/5 transition-colors"
           style={{ color: "var(--text-secondary)" }}
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>
-          New Agent
-        </h1>
+        <div>
+          <h1
+            className="text-2xl font-bold"
+            style={{ fontFamily: "var(--font-heading)", color: "var(--text-primary)", letterSpacing: "-1px" }}
+          >
+            New Agent
+          </h1>
+          <p className="text-sm mt-0.5" style={{ color: "var(--text-muted)" }}>
+            Add a new agent to your OpenClaw system
+          </p>
+        </div>
       </div>
 
       {error && (
-        <div className="px-4 py-3 rounded-lg bg-red-500/10 text-red-500 text-sm">
+        <div className="px-4 py-3 rounded-lg text-sm" style={{ backgroundColor: "#ef444415", color: "#ef4444" }}>
           {error}
         </div>
       )}
 
-      <div className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>
-            Name *
-          </label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="My Agent"
-            className="w-full px-3 py-2 rounded-lg border bg-transparent text-sm outline-none focus:ring-2 focus:ring-blue-500/50"
-            style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}
-          />
+      {/* Identity */}
+      <div className="rounded-xl p-6 space-y-5" style={{ backgroundColor: "var(--card)", border: "1px solid var(--border)" }}>
+        <div className="pb-4 text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--text-muted)", borderBottom: "1px solid var(--border)" }}>
+          Identity
+        </div>
+
+        <div className="flex gap-3">
+          <div className="flex-1">
+            <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>
+              Name <span style={{ color: "#ef4444" }}>*</span>
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="My Agent"
+              className="w-full px-3 py-2 rounded-lg border bg-transparent text-sm outline-none transition-all"
+              style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}
+              onFocus={(e) => (e.target.style.borderColor = "var(--accent)")}
+              onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>
+              Emoji
+            </label>
+            <input
+              type="text"
+              value={emoji}
+              onChange={(e) => setEmoji(e.target.value)}
+              className="w-20 px-3 py-2 rounded-lg border bg-transparent text-sm text-center outline-none transition-all"
+              style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}
+              onFocus={(e) => (e.target.style.borderColor = "var(--accent)")}
+              onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
+              maxLength={4}
+            />
+          </div>
         </div>
 
         <div>
           <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>
-            Emoji
-          </label>
-          <input
-            type="text"
-            value={emoji}
-            onChange={(e) => setEmoji(e.target.value)}
-            className="w-20 px-3 py-2 rounded-lg border bg-transparent text-sm text-center outline-none focus:ring-2 focus:ring-blue-500/50"
-            style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}
-            maxLength={4}
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>
-            Theme / System Prompt
+            System Prompt
           </label>
           <textarea
             value={theme}
             onChange={(e) => setTheme(e.target.value)}
-            rows={6}
+            rows={5}
             placeholder="You are a helpful assistant..."
-            className="w-full px-3 py-2 rounded-lg border bg-transparent text-sm outline-none resize-y focus:ring-2 focus:ring-blue-500/50"
+            className="w-full px-3 py-2 rounded-lg border bg-transparent text-sm outline-none resize-y transition-all"
             style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}
+            onFocus={(e) => (e.target.style.borderColor = "var(--accent)")}
+            onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
           />
-        </div>
-
-        <div className="flex justify-end">
-          <button
-            onClick={handleCreate}
-            disabled={saving || !isConnected}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-colors disabled:opacity-50"
-          >
-            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            Create Agent
-          </button>
+          <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>Stored as SOUL.md in the agent workspace.</p>
         </div>
       </div>
+
+      {/* Configuration */}
+      <div className="rounded-xl p-6 space-y-5" style={{ backgroundColor: "var(--card)", border: "1px solid var(--border)" }}>
+        <div className="pb-4 text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--text-muted)", borderBottom: "1px solid var(--border)" }}>
+          Configuration
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>
+            Primary Model
+          </label>
+          <ModelSelector
+            value={modelId}
+            onChange={setModelId}
+            placeholder="— Use gateway default —"
+          />
+          <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>Leave blank to inherit the gateway default model.</p>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>
+            Workspace Directory
+          </label>
+          <input
+            type="text"
+            value={workspace}
+            onChange={(e) => setWorkspace(e.target.value)}
+            placeholder="~/clawd-my-agent  (leave blank for default)"
+            className="w-full px-3 py-2 rounded-lg border bg-transparent text-sm font-mono outline-none transition-all"
+            style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}
+            onFocus={(e) => (e.target.style.borderColor = "var(--accent)")}
+            onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
+          />
+          <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>Path on the OpenClaw host where this agent&apos;s files live.</p>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <button
+          onClick={() => router.push("/agents")}
+          className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+          style={{ color: "var(--text-secondary)" }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text-primary)")}
+          onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-secondary)")}
+        >
+          Cancel
+        </button>
+        <button
+          onClick={handleCreate}
+          disabled={saving || !isConnected}
+          className="flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium transition-all disabled:opacity-50"
+          style={{ backgroundColor: "var(--accent)", color: "var(--accent-foreground, #fff)" }}
+        >
+          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+          Create Agent
+        </button>
+      </div>
+
+      {!isConnected && (
+        <p className="text-xs text-center" style={{ color: "#ef4444" }}>
+          Not connected to OpenClaw gateway — agent creation unavailable.
+        </p>
+      )}
     </div>
   );
 }
