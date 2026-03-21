@@ -1,43 +1,45 @@
-// hooks/useChatUI.ts - UI state management hook
+// hooks/useChatUI.ts
+// UI state for the messages page.
+// Corrected import path: @/app/(dashboard)/messages not @/app/dashboard/[id]/messages
+// SYSTEM_USER_ID hardwired — no auth param needed
+
+'use client';
+
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { resolveChatDisplayName } from '@/utils/chatPageUtils';
-import type { Conversation } from '@/app/dashboard/[id]/messages/_components/ChatSidebar';
+import type { Conversation } from '@/app/(dashboard)/messages/_components/ChatSidebar';
 import type { Message } from '@/utils/chatPageUtils';
+
+// Hardwired — single-user, no Supabase auth
+const SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000001';
 
 interface UseChatUIOptions {
   selectedChat: Conversation | null;
-  currentUserId: string | null;
   allMessages: Message[];
 }
 
-export function useChatUI({ selectedChat, currentUserId, allMessages }: UseChatUIOptions) {
-  // UI state
+export function useChatUI({ selectedChat, allMessages }: UseChatUIOptions) {
   const [showRightSidebar, setShowRightSidebar] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  
-  // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Handle responsive layout
+  // Responsive breakpoint
   useEffect(() => {
-    const checkIsMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-    checkIsMobile();
-    window.addEventListener('resize', checkIsMobile);
-    return () => window.removeEventListener('resize', checkIsMobile);
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
   }, []);
 
-  // Scroll to bottom when messages change
+  // Scroll to bottom on new messages
   useEffect(() => {
     if (allMessages.length > 0 && messagesEndRef.current) {
       setTimeout(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-      }, 100);
+      }, 50);
     }
   }, [allMessages.length]);
 
-  // UI handlers
   const handleInfoClick = useCallback(() => {
     setShowRightSidebar(prev => !prev);
   }, []);
@@ -47,25 +49,22 @@ export function useChatUI({ selectedChat, currentUserId, allMessages }: UseChatU
   }, []);
 
   const handleOverlayClick = useCallback((e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) {
-      setShowRightSidebar(false);
-    }
+    if (e.target === e.currentTarget) setShowRightSidebar(false);
   }, []);
 
-  // Computed values
-  const pageTitle = selectedChat ? resolveChatDisplayName(selectedChat, currentUserId) : 'Messages';
+  // resolveChatDisplayName uses currentUserId to determine "You" vs agent name
+  const pageTitle = selectedChat
+    ? resolveChatDisplayName(selectedChat, SYSTEM_USER_ID)
+    : 'Messages';
 
   return {
-    // State
     showRightSidebar,
     setShowRightSidebar,
     isMobile,
     messagesEndRef,
     pageTitle,
-    
-    // Handlers
     handleInfoClick,
     handleRightSidebarClose,
-    handleOverlayClick
+    handleOverlayClick,
   };
 }

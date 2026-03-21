@@ -1,6 +1,11 @@
 // hooks/useConversations.ts
-// No Supabase auth — Mission Control uses cookie-based auth.
-// System user ID is hardwired since this is a single-user app.
+// Aligned with actual DB schema:
+// channels: id, name, agent_id (text, e.g. "main"), type_id
+// messages: sender_type ('user'|'agent'), sender_name — no sender_id in practice
+// channel_participants: no rows for agent channels (0100, 0101) — participants always []
+// Unread: bump when sender_type === 'agent' (agent replied to us)
+
+'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
@@ -13,7 +18,6 @@ const supabase = createBrowserClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-// Hardwired — single user app, no Supabase Auth needed
 export const SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000001';
 
 interface UseConversationsOptions {
@@ -29,10 +33,8 @@ export function useConversations(options: UseConversationsOptions = {}) {
   const lastFetchTime = useRef(0);
   const hasFetched = useRef(false);
 
-  const fetchConversations = async (forceRefresh = false) => {
-    if (!forceRefresh && hasFetched.current && Date.now() - lastFetchTime.current < 30000) {
-      return;
-    }
+  const fetchConversations = useCallback(async (forceRefresh = false) => {
+    if (!forceRefresh && hasFetched.current && Date.now() - lastFetchTime.current < 30000) return;
 
     const cachedData = storage.get(CACHE_KEYS.CONVERSATIONS);
     if (!forceRefresh && cachedData && !hasFetched.current) {
@@ -48,54 +50,44 @@ export function useConversations(options: UseConversationsOptions = {}) {
 
       const res = await fetch('/api/messages/get-conversations');
       if (!isMounted.current) return;
-
-      if (!res.ok) {
-        const errorText = await res.text();
-        throw new Error(`Failed to fetch conversations: ${res.status} - ${errorText}`);
-      }
+      if (!res.ok) throw new Error(`${res.status}`);
 
       const raw = await res.json();
 
+      // /api/messages/get-conversations returns channels where agent_id IS NOT NULL
+      // participants is always [] for agent channels — no channel_participants rows exist
       const mapped: Conversation[] = raw.map((c: any) => ({
-        id: c.id ?? c.channel_id,
-        channel_id: c.channel_id,
-        channel_name: c.channel_name,
-        is_group: c.is_group,
+        id: c.id ?? c.channel_id,           // channel UUID
+        channel_id: c.channel_id,           // same UUID
+        channel_name: c.channel_name,       // e.g. "Skill — POWER"
+        is_group: c.is_group ?? false,
         last_message: c.last_message_content ?? null,
         last_message_at: c.last_message_at ?? null,
         unread_count: c.unread_count ?? 0,
-        participants: (c.participants || []).map((p: any) => ({
-          user_id: p.user_id,
-          display_name: p.display_name,
-          avatar_url: p.avatar_url,
-          email: p.email,
-          online: p.online ?? false,
-        })),
+        participants: [],                   // agent channels have no participants rows
       }));
 
       if (!isMounted.current) return;
-
       storage.set(CACHE_KEYS.CONVERSATIONS, mapped, 300);
       setConversations(mapped);
       setError(null);
     } catch (err) {
       console.error('[useConversations] fetch error:', err);
-      if (!cachedData || forceRefresh) {
-        setError('Failed to load conversations. Please try again.');
+      if (!storage.get(CACHE_KEYS.CONVERSATIONS) || forceRefresh) {
+        setError('Failed to load conversations');
       }
     } finally {
       if (isMounted.current) setIsLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchConversations();
-    return () => {
-      isMounted.current = false;
-    };
-  }, []);
+    return () => { isMounted.current = false; };
+  }, [fetchConversations]);
 
-  // Realtime — update conversation list when new messages arrive
+  // Update sidebar when messages arrive via Realtime
+  // sender_type is 'agent' or 'user' — sender_id is always null in our data
   useRealtimeInsert({
     supabase,
     table: 'messages',
@@ -106,6 +98,7 @@ export function useConversations(options: UseConversationsOptions = {}) {
       setConversations(prev => {
         const idx = prev.findIndex(c => c.channel_id === newMessage.channel_id);
         if (idx === -1) {
+          // New channel we don't know about — refetch
           setTimeout(() => fetchConversations(true), 1000);
           return prev;
         }
@@ -115,10 +108,12 @@ export function useConversations(options: UseConversationsOptions = {}) {
         conv.last_message = newMessage.content;
         conv.last_message_at = newMessage.created_at;
 
-        if (newMessage.sender_id !== SYSTEM_USER_ID) {
+        // Bump unread when the agent replies (not when we send)
+        if (newMessage.sender_type === 'agent') {
           conv.unread_count = (conv.unread_count || 0) + 1;
         }
 
+        // Move to top of list
         updated.splice(idx, 1);
         updated.unshift(conv);
         storage.set(CACHE_KEYS.CONVERSATIONS, updated, 300);
@@ -129,8 +124,7 @@ export function useConversations(options: UseConversationsOptions = {}) {
 
   const addConversation = useCallback((conversation: Conversation) => {
     setConversations(prev => {
-      const exists = prev.some(c => c.channel_id === conversation.channel_id);
-      if (exists) return prev;
+      if (prev.some(c => c.channel_id === conversation.channel_id)) return prev;
       const updated = [conversation, ...prev];
       storage.set(CACHE_KEYS.CONVERSATIONS, updated, 300);
       return updated;

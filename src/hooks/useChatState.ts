@@ -37,6 +37,8 @@ export function useChatState(options: UseChatStateOptions = {}) {
   const isMounted = useRef(true);
   const baseMessagesRef = useRef<Message[]>([]);
   const selectedChatRef = useRef<Conversation | null>(null);
+  // Stable channel ID ref — only changes when we actually switch channels
+  const selectedChatIdRef = useRef<string | null>(null);
 
   const {
     messages: baseMessages,
@@ -92,8 +94,13 @@ export function useChatState(options: UseChatStateOptions = {}) {
     return () => { isMounted.current = false; };
   }, []);
 
+  // Clear realtime messages only when channel ID actually changes
   useEffect(() => {
-    setRealtimeMessages([]);
+    const newId = selectedChat?.id ?? null;
+    if (newId !== selectedChatIdRef.current) {
+      selectedChatIdRef.current = newId;
+      setRealtimeMessages([]);
+    }
   }, [selectedChat?.id]);
 
   useEffect(() => {
@@ -160,6 +167,7 @@ export function useChatState(options: UseChatStateOptions = {}) {
       if (prev.some(msg => msg.id === transformedMessage.id)) return prev;
 
       if (isUserMessage) {
+        // Replace optimistic user message with real one
         const withoutOptimistic = prev.filter(
           msg =>
             !(String(msg.id).startsWith('temp-') &&
@@ -169,6 +177,7 @@ export function useChatState(options: UseChatStateOptions = {}) {
         return [...withoutOptimistic, transformedMessage];
       }
 
+      // Agent message — replace typing bubble if present
       if (prev.some(msg => msg.id === AGENT_TYPING_ID)) {
         return prev.map(msg => msg.id === AGENT_TYPING_ID ? transformedMessage : msg);
       }
@@ -177,11 +186,16 @@ export function useChatState(options: UseChatStateOptions = {}) {
     });
   }, []);
 
+  // Use stable channel ID string for filter to avoid unnecessary subscription teardowns
+  const realtimeFilter = selectedChatIdRef.current
+    ? `channel_id=eq.${selectedChatIdRef.current}`
+    : undefined;
+
   useRealtimeInsert({
     supabase,
     table: 'messages',
-    filter: selectedChat ? `channel_id=eq.${selectedChat.id}` : undefined,
-    enabled: !!selectedChat,
+    filter: realtimeFilter,
+    enabled: !!selectedChatIdRef.current,
     onInsert: handleRealtimeMessage,
   });
 
@@ -205,7 +219,7 @@ export function useChatState(options: UseChatStateOptions = {}) {
         email: '',
       };
 
-      const agentName = selectedChat.name || 'Agent';
+      const agentName = selectedChat.channel_name || selectedChat.name || 'Agent';
 
       const optimisticMessage = createOptimisticMessage(
         SYSTEM_USER_ID,
@@ -243,8 +257,10 @@ export function useChatState(options: UseChatStateOptions = {}) {
         });
 
         if (!res.ok) throw new Error(`agent-chat failed: ${res.status}`);
+        // Don't remove typing bubble here — Realtime will replace it when reply arrives
       } catch (err) {
         console.error('[useChatState] send error:', err);
+        // Only clear on actual error — remove both optimistic and typing bubble
         setRealtimeMessages(prev =>
           prev.filter(msg => msg.id !== optimisticMessage.id && msg.id !== AGENT_TYPING_ID)
         );
@@ -258,7 +274,6 @@ export function useChatState(options: UseChatStateOptions = {}) {
     (chat: Conversation) => {
       setSelectedChat(chat);
       setUserProfiles({});
-      setRealtimeMessages([]);
       options.onChatSelect?.(chat);
     },
     [options]

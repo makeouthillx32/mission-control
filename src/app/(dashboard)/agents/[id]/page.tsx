@@ -41,7 +41,7 @@ export default function EditAgentPage() {
     setSaving(true);
     setError(null);
     try {
-      await rpc("agents.set-identity" as any, {
+      await rpc("agents.update" as any, {
         agentId,
         ...(name.trim() ? { name: name.trim() } : {}),
         ...(emoji ? { emoji } : {}),

@@ -1,78 +1,106 @@
-import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+// hooks/useChat.ts
+// Aligned with actual DB schema:
+// messages: id, channel_id, sender_id (always null), sender_type ('user'|'agent'), sender_name, content, created_at
+// No Supabase auth — single-user app, cookie-based auth with hardwired SYSTEM_USER_ID
+// Send goes via /api/agent-chat (fire-and-forget to gateway, reply arrives via Realtime)
+
+'use client';
+
+import { useEffect, useState, useCallback } from 'react';
+import { createBrowserClient } from '@supabase/ssr';
+
+const supabase = createBrowserClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
+
+// Hardwired — no Supabase auth
+export const SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000001';
 
 export interface Message {
   id: string;
   channel_id: string;
-  sender_id: string;
+  sender_id: string | null;   // always null in practice, kept for schema accuracy
+  sender_type: 'user' | 'agent';
+  sender_name: string;
   content: string;
   created_at: string;
 }
 
-/**
- * Hook to subscribe to and fetch chat messages for a given channel.
- */
 export function useChat(channelId: string) {
   const [messages, setMessages] = useState<Message[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!channelId) return;
 
-    async function fetchMessages() {
-      const { data, error } = await supabase
-        .from('messages')
-        .select('*')
-        .eq('channel_id', channelId)
-        .order('created_at', { ascending: true });
+    setLoading(true);
+    setError(null);
 
-      if (error) {
-        console.error('Error fetching messages:', error);
-        return;
-      }
+    supabase
+      .from('messages')
+      .select('id, channel_id, sender_id, sender_type, sender_name, content, created_at')
+      .eq('channel_id', channelId)
+      .order('created_at', { ascending: true })
+      .then(({ data, error: fetchError }) => {
+        if (fetchError) {
+          console.error('[useChat] fetch error:', fetchError);
+          setError(fetchError.message);
+        } else {
+          setMessages((data as Message[]) ?? []);
+        }
+        setLoading(false);
+      });
 
-      // Type assertion since Supabase returns a generic any[]
-      setMessages(data as Message[]);
-    }
-
-    fetchMessages();
-
-    // Subscribe to new messages
+    // Realtime subscription — INSERT only
     const channel = supabase
-      .channel(`channel:${channelId}`)
+      .channel(`useChat:${channelId}`)
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages', filter: `channel_id=eq.${channelId}` },
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `channel_id=eq.${channelId}`,
+        },
         payload => {
-          setMessages(prev => [...prev, payload.new as Message]);
+          const newMsg = payload.new as Message;
+          setMessages(prev => {
+            if (prev.some(m => m.id === newMsg.id)) return prev;
+            return [...prev, newMsg];
+          });
         }
       )
       .subscribe();
 
     return () => {
-      // Cleanup subscription
       supabase.removeChannel(channel);
     };
   }, [channelId]);
 
-  /**
-   * Send a new chat message.
-   */
-  const sendMessage = async (content: string) => {
-    const user = await supabase.auth.getUser();
-    const senderId = user.data.user?.id;
-    if (!senderId) {
-      console.error('User not authenticated');
-      return;
-    }
+  // Fire-and-forget — gateway processes async, reply arrives via Realtime
+  const sendMessage = useCallback(async (content: string) => {
+    if (!content.trim() || !channelId) return;
 
-    const { error } = await supabase
-      .from('messages')
-      .insert([{ channel_id: channelId, sender_id: senderId, content }]);
+    const res = await fetch('/api/agent-chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ channel_id: channelId, content: content.trim() }),
+    });
 
-    if (error) {
-      console.error('Error sending message:', error);
+    if (!res.ok) {
+      const text = await res.text();
+      console.error('[useChat] send error:', res.status, text);
+      throw new Error(`Failed to send: ${res.status}`);
     }
+  }, [channelId]);
+
+  return {
+    messages,
+    loading,
+    error,
+    sendMessage,
+    currentUserId: SYSTEM_USER_ID,
   };
-
-  return { messages, sendMessage };
 }
