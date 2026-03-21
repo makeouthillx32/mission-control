@@ -44,7 +44,7 @@ export default function EditAgentPage() {
       await updateAgent({
         id: agentId,
         identity: { name, emoji, theme },
-        ...(modelId ? { model: { primary: modelId } } : {}),
+        ...(modelId ? { model: modelId } : {}),
       } as any);
       router.push("/agents");
     } catch (err) {

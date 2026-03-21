@@ -10,7 +10,7 @@ import { ModelSelector } from "@/components/ModelSelector";
 export default function NewAgentPage() {
   const router = useRouter();
   const { isConnected } = useOpenClaw();
-  const { createAgent } = useOpenClawAgents();
+  const { createAgent, updateAgent } = useOpenClawAgents();
 
   const [name, setName] = useState("");
   const [emoji, setEmoji] = useState("🤖");
@@ -28,12 +28,28 @@ export default function NewAgentPage() {
     setSaving(true);
     setError(null);
     try {
-      await createAgent({
-        name,
-        identity: { name, emoji, theme },
-        ...(modelId ? { model: { primary: modelId } } : {}),
-        ...(workspace.trim() ? { workspace: workspace.trim() } : {}),
-      } as any);
+      // Step 1: create — gateway only accepts flat: name, workspace, model
+      // workspace is required by the gateway schema
+      const slug = name.trim().toLowerCase().replace(/\s+/g, "-");
+      const created = await createAgent({
+        name: name.trim(),
+        workspace: workspace.trim() || `~/clawd-${slug}`,
+        ...(modelId ? { model: modelId } : {}),
+      } as any) as any;
+
+      // Step 2: if we have identity fields (emoji / theme), patch them via update
+      if ((emoji && emoji !== "🤖") || theme.trim()) {
+        const agentId = created?.id ?? slug;
+        await updateAgent({
+          id: agentId,
+          identity: {
+            name: name.trim(),
+            ...(emoji ? { emoji } : {}),
+            ...(theme.trim() ? { theme: theme.trim() } : {}),
+          },
+        });
+      }
+
       router.push("/agents");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create agent");
