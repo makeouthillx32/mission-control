@@ -1,17 +1,13 @@
 "use client";
 
 // GatewayControls.tsx
-// Three gateway actions from Mission Control:
-//   1. Switch active model (config.set agents.defaults.model.primary)
-//   2. Reset stuck session (sessions.reset)
-//   3. Set timeout (config.set agents.defaults.timeoutSeconds)
-//
-// Drop into agents page or any dashboard card.
+// Gateway config controls: switch primary model + set agent timeout
+// config.get returns { config, baseHash } — baseHash required for config.set
+// config.set requires { raw: "key=value", baseHash }
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useOpenClaw } from "@/contexts/OpenClawContext";
 import { useOpenClawModels } from "@/hooks/use-openclaw-models";
-import { useOpenClawSessions } from "@/hooks/use-openclaw-sessions";
 import { ModelSelector } from "@/components/ModelSelector";
 import { Loader2, Check, AlertCircle, Settings2 } from "lucide-react";
 
@@ -20,7 +16,6 @@ type Status = "idle" | "loading" | "ok" | "error";
 function useAction() {
   const [status, setStatus] = useState<Status>("idle");
   const [message, setMessage] = useState("");
-
   const run = async (fn: () => Promise<void>) => {
     setStatus("loading");
     setMessage("");
@@ -34,96 +29,96 @@ function useAction() {
       setTimeout(() => setStatus("idle"), 4000);
     }
   };
-
   return { status, message, run };
 }
 
 export function GatewayControls() {
   const { rpc, isConnected } = useOpenClaw();
-  const { models, loading: modelsLoading } = useOpenClawModels();
-  const { sessions } = useOpenClawSessions();
+  const { } = useOpenClawModels(); // keeps models loaded for ModelSelector
 
-  // ── 1. Switch model ──────────────────────────────────────────────────────
-  const [selectedModel, setSelectedModel] = useState("");
-  const [currentPrimary, setCurrentPrimary] = useState<string | null>(null);
-  const modelAction = useAction();
+  const [configCache, setConfigCache] = useState<{ baseHash: string; config: any } | null>(null);
 
-  // Load current primary model from config
-  useEffect(() => {
-    if (!isConnected) return;
-    rpc("config.get", { key: "agents.defaults.model.primary" } as any)
-      .then((res: any) => {
-        const val = res?.value ?? res;
-        if (typeof val === "string") setCurrentPrimary(val);
-      })
-      .catch(() => {});
+  const fetchConfig = useCallback(async () => {
+    if (!isConnected) return null;
+    try {
+      const res = await (rpc as any)("config.get");
+      const baseHash = res?.baseHash ?? res?.hash ?? "";
+      const config = res?.config ?? res?.resolved ?? res;
+      setConfigCache({ baseHash, config });
+      return { baseHash, config };
+    } catch {
+      return null;
+    }
   }, [isConnected, rpc]);
+
+  useEffect(() => { fetchConfig(); }, [fetchConfig]);
+
+  const getBaseHash = async (): Promise<string> => {
+    if (configCache?.baseHash) return configCache.baseHash;
+    const fresh = await fetchConfig();
+    if (!fresh?.baseHash) throw new Error("Could not get config hash — try refreshing");
+    return fresh.baseHash;
+  };
+
+  const getConfigVal = (path: string): string | null => {
+    if (!configCache?.config) return null;
+    let cur: any = configCache.config;
+    for (const p of path.split(".")) {
+      if (cur == null || typeof cur !== "object") return null;
+      cur = cur[p];
+    }
+    return cur != null ? String(cur) : null;
+  };
+
+  // ── Primary Model ────────────────────────────────────────────────────────
+  const [selectedModel, setSelectedModel] = useState("");
+  const modelAction = useAction();
+  const currentPrimary = getConfigVal("agents.defaults.model.primary");
 
   const switchModel = () =>
     modelAction.run(async () => {
       if (!selectedModel) throw new Error("Select a model first");
-      await rpc("config.set" as any, {
-        key: "agents.defaults.model.primary",
-        value: selectedModel,
+      const baseHash = await getBaseHash();
+      await (rpc as any)("config.patch", {
+        raw: JSON.stringify({
+          agents: { defaults: { model: { primary: selectedModel } } }
+        }),
+        baseHash,
       });
-      setCurrentPrimary(selectedModel);
+      setConfigCache(null);
       setSelectedModel("");
     });
 
-  // ── 2. Reset session ─────────────────────────────────────────────────────
-  const [sessionKey, setSessionKey] = useState("");
-  const sessionAction = useAction();
-
-  // Build session options — filter to agent main sessions only
-  const agentSessions = sessions.filter(
-    (s) => s.key?.startsWith("agent:") && !s.key?.includes(":run:")
-  );
-
-  const resetSession = () =>
-    sessionAction.run(async () => {
-      const key = sessionKey.trim();
-      if (!key) throw new Error("Select or enter a session key");
-      await rpc("sessions.reset", { key });
-      setSessionKey("");
-    });
-
-  // ── 3. Timeout ───────────────────────────────────────────────────────────
-  const [timeout, setTimeout_] = useState("300");
-  const [currentTimeout, setCurrentTimeout] = useState<number | null>(null);
+  // ── Agent Timeout ────────────────────────────────────────────────────────
+  const [timeoutVal, setTimeoutVal] = useState("300");
   const timeoutAction = useAction();
+  const currentTimeout = getConfigVal("agents.defaults.timeoutSeconds");
 
   useEffect(() => {
-    if (!isConnected) return;
-    rpc("config.get", { key: "agents.defaults.timeoutSeconds" } as any)
-      .then((res: any) => {
-        const val = res?.value ?? res;
-        if (typeof val === "number") {
-          setCurrentTimeout(val);
-          setTimeout_(String(val));
-        }
-      })
-      .catch(() => {});
-  }, [isConnected, rpc]);
+    if (currentTimeout) setTimeoutVal(currentTimeout);
+  }, [currentTimeout]);
 
   const saveTimeout = () =>
     timeoutAction.run(async () => {
-      const val = parseInt(timeout);
+      const val = parseInt(timeoutVal);
       if (isNaN(val) || val < 30) throw new Error("Must be at least 30 seconds");
-      await rpc("config.set" as any, {
-        key: "agents.defaults.timeoutSeconds",
-        value: val,
+      const baseHash = await getBaseHash();
+      await (rpc as any)("config.patch", {
+        raw: JSON.stringify({
+          agents: { defaults: { timeoutSeconds: val } }
+        }),
+        baseHash,
       });
-      setCurrentTimeout(val);
+      setConfigCache(null);
     });
 
   if (!isConnected) return null;
 
   return (
     <div
-      className="rounded-xl mb-6"
+      className="rounded-xl"
       style={{ backgroundColor: "var(--card)", border: "1px solid var(--border)" }}
     >
-      {/* Header */}
       <div
         className="px-5 py-4 flex items-center gap-2"
         style={{ borderBottom: "1px solid var(--border)" }}
@@ -136,7 +131,7 @@ export function GatewayControls() {
 
       <div className="p-5 space-y-5">
 
-        {/* ── 1. Switch model ─────────────────────────────────────────────── */}
+        {/* Primary Model */}
         <div>
           <div className="flex items-center justify-between mb-1.5">
             <label className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
@@ -144,7 +139,7 @@ export function GatewayControls() {
             </label>
             {currentPrimary && (
               <span className="text-xs font-mono" style={{ color: "var(--text-muted)" }}>
-                current: {currentPrimary.split("/").pop()}
+                active: {currentPrimary.split("/").pop()}
               </span>
             )}
           </div>
@@ -169,81 +164,23 @@ export function GatewayControls() {
           )}
         </div>
 
-        {/* ── 2. Reset session ────────────────────────────────────────────── */}
-        <div>
-          <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>
-            Reset Stuck Session
-          </label>
-          <div className="flex gap-2">
-            <div className="flex-1 relative">
-              {agentSessions.length > 0 ? (
-                <select
-                  value={sessionKey}
-                  onChange={(e) => setSessionKey(e.target.value)}
-                  disabled={sessionAction.status === "loading"}
-                  className="w-full px-3 py-2 rounded-lg border bg-transparent text-sm outline-none appearance-none transition-all"
-                  style={{
-                    borderColor: "var(--border)",
-                    color: sessionKey ? "var(--text-primary)" : "var(--text-muted)",
-                    backgroundColor: "var(--card)",
-                  }}
-                  onFocus={(e) => (e.target.style.borderColor = "var(--accent)")}
-                  onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
-                >
-                  <option value="">— Select session —</option>
-                  {agentSessions.map((s) => (
-                    <option key={s.key} value={s.key} style={{ backgroundColor: "var(--card)" }}>
-                      {s.key}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <input
-                  type="text"
-                  value={sessionKey}
-                  onChange={(e) => setSessionKey(e.target.value)}
-                  placeholder="agent:main:openai-user:mission-control-..."
-                  disabled={sessionAction.status === "loading"}
-                  className="w-full px-3 py-2 rounded-lg border bg-transparent text-xs font-mono outline-none transition-all"
-                  style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}
-                  onFocus={(e) => (e.target.style.borderColor = "var(--accent)")}
-                  onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
-                />
-              )}
-            </div>
-            <ActionButton
-              onClick={resetSession}
-              status={sessionAction.status}
-              label="Reset"
-              disabled={!sessionKey.trim()}
-              variant="warning"
-            />
-          </div>
-          {sessionAction.status === "error" && (
-            <p className="text-xs mt-1" style={{ color: "#ef4444" }}>{sessionAction.message}</p>
-          )}
-          <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
-            Clears a stuck or timed-out agent session.
-          </p>
-        </div>
-
-        {/* ── 3. Timeout ──────────────────────────────────────────────────── */}
+        {/* Agent Timeout */}
         <div>
           <div className="flex items-center justify-between mb-1.5">
             <label className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
               Agent Timeout
             </label>
-            {currentTimeout !== null && (
+            {currentTimeout && (
               <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-                current: {currentTimeout}s ({Math.round(currentTimeout / 60)}m)
+                current: {currentTimeout}s ({Math.round(Number(currentTimeout) / 60)}m)
               </span>
             )}
           </div>
           <div className="flex gap-2 items-center">
             <input
               type="number"
-              value={timeout}
-              onChange={(e) => setTimeout_(e.target.value)}
+              value={timeoutVal}
+              onChange={(e) => setTimeoutVal(e.target.value)}
               min={30}
               step={60}
               disabled={timeoutAction.status === "loading"}
@@ -254,17 +191,13 @@ export function GatewayControls() {
             />
             <span className="text-sm" style={{ color: "var(--text-muted)" }}>seconds</span>
             <div className="flex-1" />
-            <ActionButton
-              onClick={saveTimeout}
-              status={timeoutAction.status}
-              label="Save"
-            />
+            <ActionButton onClick={saveTimeout} status={timeoutAction.status} label="Save" />
           </div>
           {timeoutAction.status === "error" && (
             <p className="text-xs mt-1" style={{ color: "#ef4444" }}>{timeoutAction.message}</p>
           )}
           <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
-            Default 300s. Increase if your local model is slow to load (e.g. 1200s for 14B models).
+            Set to 1200 for 14B local models (cold load ~60s + inference time).
           </p>
         </div>
 
@@ -272,8 +205,6 @@ export function GatewayControls() {
     </div>
   );
 }
-
-// ── Shared button ────────────────────────────────────────────────────────────
 
 interface ActionButtonProps {
   onClick: () => void;
@@ -287,23 +218,8 @@ function ActionButton({ onClick, status, label, disabled, variant = "default" }:
   const isLoading = status === "loading";
   const isOk = status === "ok";
   const isError = status === "error";
-
-  const bg = isError
-    ? "#ef444420"
-    : isOk
-    ? "#22c55e20"
-    : variant === "warning"
-    ? "#f9731620"
-    : "var(--accent)";
-
-  const color = isError
-    ? "#ef4444"
-    : isOk
-    ? "#22c55e"
-    : variant === "warning"
-    ? "#f97316"
-    : "var(--accent-foreground, #fff)";
-
+  const bg = isError ? "#ef444420" : isOk ? "#22c55e20" : variant === "warning" ? "#f9731620" : "var(--accent)";
+  const color = isError ? "#ef4444" : isOk ? "#22c55e" : variant === "warning" ? "#f97316" : "var(--accent-foreground, #fff)";
   return (
     <button
       onClick={onClick}
@@ -311,13 +227,7 @@ function ActionButton({ onClick, status, label, disabled, variant = "default" }:
       className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all shrink-0 disabled:opacity-40"
       style={{ backgroundColor: bg, color }}
     >
-      {isLoading ? (
-        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-      ) : isOk ? (
-        <Check className="w-3.5 h-3.5" />
-      ) : isError ? (
-        <AlertCircle className="w-3.5 h-3.5" />
-      ) : null}
+      {isLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : isOk ? <Check className="w-3.5 h-3.5" /> : isError ? <AlertCircle className="w-3.5 h-3.5" /> : null}
       {isOk ? "Done" : isError ? "Error" : label}
     </button>
   );
