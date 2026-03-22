@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Settings, RefreshCw } from "lucide-react";
 import { SystemInfo } from "@/components/SystemInfo";
 import { IntegrationStatus } from "@/components/IntegrationStatus";
-import { QuickActions } from "@/components/QuickActions";
+import { QuickActions } from "@/components/GatewayControls/QuickActions";
 import { DMRCard } from "@/components/DMRCard";
 import { GatewayControlsWithRestart } from "@/components/GatewayControls";
 
