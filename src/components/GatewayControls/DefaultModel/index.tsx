@@ -1,9 +1,5 @@
+// src/components/GatewayControls/DefaultModel/index.tsx
 "use client";
-
-// GatewayControls.tsx
-// Gateway config controls: switch primary model + set agent timeout
-// config.get returns { config, baseHash } — baseHash required for config.set
-// config.set requires { raw: "key=value", baseHash }
 
 import { useState, useEffect, useCallback } from "react";
 import { useOpenClaw } from "@/contexts/OpenClawContext";
@@ -32,7 +28,7 @@ function useAction() {
   return { status, message, run };
 }
 
-export function GatewayControls() {
+export function DefaultModel() {
   const { rpc, isConnected } = useOpenClaw();
   const { } = useOpenClawModels(); // keeps models loaded for ModelSelector
 

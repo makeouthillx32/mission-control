@@ -1,10 +1,13 @@
+// src/components/layout/Header.tsx
+"use client";
+
 import { useState } from "react"
 import { RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import GatewayStatus from "@/components/gateway/GatewayStatus"
-import GatewayStats from "@/components/gateway/GatewayStats"
-import RestartButton from "@/components/gateway/RestartButton"
-import RestartDialog from "@/components/gateway/RestartDialog"
+import GatewayStatus from "@/components/GatewayControls/GatewayStatus"
+import GatewayStats from "@/components/GatewayControls/GatewayStats"
+import RestartButton from "@/components/GatewayControls/RestartButton"
+import RestartDialog from "@/components/GatewayControls/RestartDialog"
 import { useGatewayStatus, useGatewayRestart } from "@/hooks/useGatewayStatus"
 
 export default function Header() {

@@ -1,3 +1,5 @@
+// src/components/gateway/GatewayStatus/index.tsx
+
 import { cn } from "@/lib/utils"
 
 interface GatewayStatusProps {

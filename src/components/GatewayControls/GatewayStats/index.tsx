@@ -1,3 +1,5 @@
+// src/components/gateway/GatewayStats/index.tsx
+
 import { Badge } from "@/components/ui/badge"
 
 interface GatewayStatsProps {

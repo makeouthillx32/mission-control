@@ -1,3 +1,5 @@
+// src/components/gateway/RestartButton/index.tsx
+
 import { RotateCcw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"

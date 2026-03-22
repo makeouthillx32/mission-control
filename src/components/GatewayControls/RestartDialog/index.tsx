@@ -1,3 +1,5 @@
+// src/components/gateway/RestartDialog/index.tsx
+
 import {
   AlertDialog,
   AlertDialogAction,
