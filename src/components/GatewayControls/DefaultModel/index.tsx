@@ -28,9 +28,9 @@ function useAction() {
   return { status, message, run };
 }
 
-export function DefaultModel() {
+export function GatewayControls() {
   const { rpc, isConnected } = useOpenClaw();
-  const { } = useOpenClawModels(); // keeps models loaded for ModelSelector
+  const { } = useOpenClawModels();
 
   const [configCache, setConfigCache] = useState<{ baseHash: string; config: any } | null>(null);
 
@@ -66,7 +66,6 @@ export function DefaultModel() {
     return cur != null ? String(cur) : null;
   };
 
-  // ── Primary Model ────────────────────────────────────────────────────────
   const [selectedModel, setSelectedModel] = useState("");
   const modelAction = useAction();
   const currentPrimary = getConfigVal("agents.defaults.model.primary");
@@ -85,7 +84,6 @@ export function DefaultModel() {
       setSelectedModel("");
     });
 
-  // ── Agent Timeout ────────────────────────────────────────────────────────
   const [timeoutVal, setTimeoutVal] = useState("300");
   const timeoutAction = useAction();
   const currentTimeout = getConfigVal("agents.defaults.timeoutSeconds");
@@ -127,7 +125,6 @@ export function DefaultModel() {
 
       <div className="p-5 space-y-5">
 
-        {/* Primary Model */}
         <div>
           <div className="flex items-center justify-between mb-1.5">
             <label className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
@@ -160,7 +157,6 @@ export function DefaultModel() {
           )}
         </div>
 
-        {/* Agent Timeout */}
         <div>
           <div className="flex items-center justify-between mb-1.5">
             <label className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>

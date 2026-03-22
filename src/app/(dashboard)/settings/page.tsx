@@ -6,7 +6,7 @@ import { SystemInfo } from "@/components/SystemInfo";
 import { IntegrationStatus } from "@/components/IntegrationStatus";
 import { QuickActions } from "@/components/GatewayControls/QuickActions";
 import { DMRCard } from "@/components/DMRCard";
-import { GatewayControlsWithRestart } from "@/components/GatewayControls";
+import { GatewayControls } from "@/components/GatewayControls";
 
 interface SystemData {
   agent: {
@@ -114,9 +114,9 @@ export default function SettingsPage() {
           <SystemInfo data={systemData} />
         </div>
 
-        {/* Gateway Controls + Restart Dialog - Full width */}
+        {/* Gateway Controls - Full width */}
         <div className="lg:col-span-2">
-          <GatewayControlsWithRestart />
+          <GatewayControls />
         </div>
 
         {/* Integration Status */}

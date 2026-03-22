@@ -4,8 +4,7 @@ import path from "path";
 
 const OPENCLAW_DIR = process.env.OPENCLAW_DIR || "/root/.openclaw";
 
-// Files to show in the memory browser
-const ROOT_FILES = ["MEMORY.md", "SOUL.md", "USER.md", "AGENTS.md", "TOOLS.md", "IDENTITY.md"];
+const ROOT_FILES = ["MEMORY.md", "SOUL.md", "USER.md", "AGENTS.md", "TOOLS.md", "IDENTITY.md", "HEARTBEAT.md", "BOOTSTRAP.md"];
 const MEMORY_DIR = "memory";
 
 interface FileNode {
@@ -27,43 +26,26 @@ async function fileExists(filePath: string): Promise<boolean> {
 async function getFileTree(workspacePath: string): Promise<FileNode[]> {
   const tree: FileNode[] = [];
 
-  // Add root markdown files
   for (const file of ROOT_FILES) {
     const fullPath = path.join(workspacePath, file);
     if (await fileExists(fullPath)) {
-      tree.push({
-        name: file,
-        path: file,
-        type: "file",
-      });
+      tree.push({ name: file, path: file, type: "file" });
     }
   }
 
-  // Add memory folder if it exists
   const memoryPath = path.join(workspacePath, MEMORY_DIR);
   if (await fileExists(memoryPath)) {
-    const memoryStats = await fs.stat(memoryPath);
-    if (memoryStats.isDirectory()) {
+    const stat = await fs.stat(memoryPath);
+    if (stat.isDirectory()) {
       const memoryFiles = await fs.readdir(memoryPath);
       const children: FileNode[] = [];
-
       for (const file of memoryFiles.sort().reverse()) {
         if (file.endsWith(".md")) {
-          children.push({
-            name: file,
-            path: `${MEMORY_DIR}/${file}`,
-            type: "file",
-          });
+          children.push({ name: file, path: `${MEMORY_DIR}/${file}`, type: "file" });
         }
       }
-
       if (children.length > 0) {
-        tree.push({
-          name: MEMORY_DIR,
-          path: MEMORY_DIR,
-          type: "folder",
-          children,
-        });
+        tree.push({ name: MEMORY_DIR, path: MEMORY_DIR, type: "folder", children });
       }
     }
   }
@@ -72,76 +54,58 @@ async function getFileTree(workspacePath: string): Promise<FileNode[]> {
 }
 
 function sanitizePath(requestedPath: string): string | null {
-  // Prevent directory traversal
   const normalized = path.normalize(requestedPath);
-  if (normalized.startsWith("..") || path.isAbsolute(normalized)) {
-    return null;
-  }
-
-  // Only allow .md files
-  if (!normalized.endsWith(".md")) {
-    return null;
-  }
-
-  // Only allow root files or files in memory/
+  if (normalized.startsWith("..") || path.isAbsolute(normalized)) return null;
+  if (!normalized.endsWith(".md")) return null;
   const isRootFile = ROOT_FILES.includes(normalized);
-  const isMemoryFile = normalized.startsWith(`${MEMORY_DIR}/`);
-
-  if (!isRootFile && !isMemoryFile) {
-    return null;
-  }
-
+  const isMemoryFile = normalized.startsWith(`${MEMORY_DIR}${path.sep}`) || normalized.startsWith(`${MEMORY_DIR}/`);
+  if (!isRootFile && !isMemoryFile) return null;
   return normalized;
+}
+
+function resolveWorkspacePath(workspaceParam: string): string {
+  // If it looks like an absolute path (Windows or Unix), use it directly
+  if (path.isAbsolute(workspaceParam)) return workspaceParam;
+  // If it starts with ~ resolve to home
+  if (workspaceParam.startsWith('~')) {
+    return workspaceParam.replace('~', path.dirname(OPENCLAW_DIR));
+  }
+  // Otherwise treat as relative to OPENCLAW_DIR (legacy: "workspace", "workspace-docs")
+  return path.join(OPENCLAW_DIR, workspaceParam);
 }
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const workspace = searchParams.get("workspace") || "workspace";
+  const workspaceParam = searchParams.get("workspace") || "workspace";
   const filePath = searchParams.get("path");
 
   try {
-    // Determine workspace path
-    const workspacePath = path.join(OPENCLAW_DIR, workspace);
-    
-    // Validate workspace exists
-    if (!(await fileExists(workspacePath))) {
-      return NextResponse.json(
-        { error: "Workspace not found" },
-        { status: 404 }
-      );
+    const workspacePath = resolveWorkspacePath(workspaceParam);
+
+    if (!await fileExists(workspacePath)) {
+      return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
     }
 
     if (!filePath) {
-      // Return file tree
       const tree = await getFileTree(workspacePath);
       return NextResponse.json(tree);
     }
 
-    // Read specific file
     const safePath = sanitizePath(filePath);
     if (!safePath) {
-      return NextResponse.json(
-        { error: "Invalid file path" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Invalid file path" }, { status: 400 });
     }
 
     const fullPath = path.join(workspacePath, safePath);
-    if (!(await fileExists(fullPath))) {
-      return NextResponse.json(
-        { error: "File not found" },
-        { status: 404 }
-      );
+    if (!await fileExists(fullPath)) {
+      return NextResponse.json({ error: "File not found" }, { status: 404 });
     }
 
     const content = await fs.readFile(fullPath, "utf-8");
     return NextResponse.json({ path: safePath, content });
   } catch (error) {
     console.error("Error reading file:", error);
-    return NextResponse.json(
-      { error: "Failed to read file" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to read file" }, { status: 500 });
   }
 }
 
@@ -151,44 +115,28 @@ export async function PUT(request: NextRequest) {
     const { workspace = "workspace", path: filePath, content } = body;
 
     if (!filePath || typeof content !== "string") {
-      return NextResponse.json(
-        { error: "Missing path or content" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Missing path or content" }, { status: 400 });
     }
 
     const safePath = sanitizePath(filePath);
     if (!safePath) {
-      return NextResponse.json(
-        { error: "Invalid file path" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Invalid file path" }, { status: 400 });
     }
 
-    const workspacePath = path.join(OPENCLAW_DIR, workspace);
-    
-    // Validate workspace exists
-    if (!(await fileExists(workspacePath))) {
-      return NextResponse.json(
-        { error: "Workspace not found" },
-        { status: 404 }
-      );
+    const workspacePath = resolveWorkspacePath(workspace);
+
+    if (!await fileExists(workspacePath)) {
+      return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
     }
 
     const fullPath = path.join(workspacePath, safePath);
-
-    // Create memory directory if needed
     const dir = path.dirname(fullPath);
     await fs.mkdir(dir, { recursive: true });
-
     await fs.writeFile(fullPath, content, "utf-8");
 
     return NextResponse.json({ success: true, path: safePath });
   } catch (error) {
     console.error("Error saving file:", error);
-    return NextResponse.json(
-      { error: "Failed to save file" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to save file" }, { status: 500 });
   }
 }
