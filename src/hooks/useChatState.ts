@@ -37,7 +37,6 @@ export function useChatState(options: UseChatStateOptions = {}) {
   const isMounted = useRef(true);
   const baseMessagesRef = useRef<Message[]>([]);
   const selectedChatRef = useRef<Conversation | null>(null);
-  // Stable channel ID ref — only changes when we actually switch channels
   const selectedChatIdRef = useRef<string | null>(null);
 
   const {
@@ -56,12 +55,9 @@ export function useChatState(options: UseChatStateOptions = {}) {
 
   const allMessages = (() => {
     const messageMap = new Map<string | number, Message>();
-
     baseMessages.forEach(msg => messageMap.set(msg.id, msg));
-
     realtimeMessages.forEach(msg => {
       if (messageMap.has(msg.id)) return;
-
       if (String(msg.id).startsWith('temp-')) {
         const inBase = baseMessages.some(
           baseMsg =>
@@ -70,7 +66,6 @@ export function useChatState(options: UseChatStateOptions = {}) {
             Math.abs(new Date(baseMsg.timestamp).getTime() - new Date(msg.timestamp).getTime()) < 10000
         );
         if (inBase) return;
-
         const inRealtime = realtimeMessages.some(
           other =>
             !String(other.id).startsWith('temp-') &&
@@ -81,10 +76,8 @@ export function useChatState(options: UseChatStateOptions = {}) {
         );
         if (inRealtime) return;
       }
-
       messageMap.set(msg.id, msg);
     });
-
     return Array.from(messageMap.values()).sort(
       (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
     );
@@ -94,7 +87,6 @@ export function useChatState(options: UseChatStateOptions = {}) {
     return () => { isMounted.current = false; };
   }, []);
 
-  // Clear realtime messages only when channel ID actually changes
   useEffect(() => {
     const newId = selectedChat?.id ?? null;
     if (newId !== selectedChatIdRef.current) {
@@ -150,7 +142,6 @@ export function useChatState(options: UseChatStateOptions = {}) {
     if (!isMounted.current) return;
     const chat = selectedChatRef.current;
     if (!chat || newMsg.channel_id !== chat.id) return;
-
     if (baseMessagesRef.current.some(msg => msg.id === newMsg.id)) return;
 
     const isUserMessage = newMsg.sender_type === 'user';
@@ -165,9 +156,7 @@ export function useChatState(options: UseChatStateOptions = {}) {
 
     setRealtimeMessages(prev => {
       if (prev.some(msg => msg.id === transformedMessage.id)) return prev;
-
       if (isUserMessage) {
-        // Replace optimistic user message with real one
         const withoutOptimistic = prev.filter(
           msg =>
             !(String(msg.id).startsWith('temp-') &&
@@ -176,17 +165,13 @@ export function useChatState(options: UseChatStateOptions = {}) {
         );
         return [...withoutOptimistic, transformedMessage];
       }
-
-      // Agent message — replace typing bubble if present
       if (prev.some(msg => msg.id === AGENT_TYPING_ID)) {
         return prev.map(msg => msg.id === AGENT_TYPING_ID ? transformedMessage : msg);
       }
-
       return [...prev, transformedMessage];
     });
   }, []);
 
-  // Use stable channel ID string for filter to avoid unnecessary subscription teardowns
   const realtimeFilter = selectedChatIdRef.current
     ? `channel_id=eq.${selectedChatIdRef.current}`
     : undefined;
@@ -200,7 +185,7 @@ export function useChatState(options: UseChatStateOptions = {}) {
   });
 
   const handleSendMessage = useCallback(
-    async (e: React.FormEvent, attachments: any[] = []) => {
+    async (e: React.FormEvent, attachments: any[] = [], activeSkill?: string) => {
       e.preventDefault();
 
       if ((!messageText.trim() && !attachments.length) || !selectedChat) {
@@ -231,7 +216,7 @@ export function useChatState(options: UseChatStateOptions = {}) {
       const typingBubble: Message = {
         id: AGENT_TYPING_ID,
         content: '',
-        timestamp: new Date().toISOString(),
+        timestamp: new Date(Date.now() + 9999999999).toISOString(),
         likes: 0,
         image: null,
         attachments: [],
@@ -253,14 +238,13 @@ export function useChatState(options: UseChatStateOptions = {}) {
           body: JSON.stringify({
             channel_id: selectedChat.id,
             content: messageContent,
+            ...(activeSkill ? { skill_id: activeSkill } : {}),
           }),
         });
 
         if (!res.ok) throw new Error(`agent-chat failed: ${res.status}`);
-        // Don't remove typing bubble here — Realtime will replace it when reply arrives
       } catch (err) {
         console.error('[useChatState] send error:', err);
-        // Only clear on actual error — remove both optimistic and typing bubble
         setRealtimeMessages(prev =>
           prev.filter(msg => msg.id !== optimisticMessage.id && msg.id !== AGENT_TYPING_ID)
         );

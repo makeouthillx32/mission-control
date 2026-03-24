@@ -34,9 +34,9 @@ function getAgentInfo(workspacePath: string): { name: string; emoji: string } | 
 
 function resolveWorkspacePath(workspacePath: string): string {
   if (!workspacePath) return '';
-  // Resolve ~ to the home dir (parent of OPENCLAW_DIR on Windows: C:\Users\skill)
+  if (path.isAbsolute(workspacePath)) return workspacePath;
   if (workspacePath.startsWith('~')) {
-    return workspacePath.replace('~', path.dirname(OPENCLAW_DIR));
+    return workspacePath.replace('~', '/root');
   }
   return workspacePath;
 }
@@ -53,26 +53,30 @@ export async function GET() {
       const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
       agentList = config?.agents?.list || [];
     } catch {
-      // no config, fall through to directory scan
+      // no config
     }
 
-    // Always add main workspace first
+    // Build a map of agentId -> agent for quick lookup
+    const agentMap = new Map(agentList.map((a) => [a.id, a]));
+
+    // Main workspace — read identity from disk, no fallback strings
     const mainWorkspace = path.join(OPENCLAW_DIR, 'workspace');
     if (fs.existsSync(mainWorkspace)) {
       seen.add(mainWorkspace);
+      const mainAgent = agentMap.get('main');
       const mainInfo = getAgentInfo(mainWorkspace);
       workspaces.push({
         id: 'workspace',
-        name: 'Workspace Principal',
-        emoji: mainInfo?.emoji || '🦞',
+        name: mainInfo?.name || mainAgent?.name || 'main',
+        emoji: mainInfo?.emoji || '🤖',
         path: mainWorkspace,
-        agentName: mainInfo?.name || 'Tenacitas',
+        agentName: mainInfo?.name || mainAgent?.name,
       });
     }
 
-    // Add each agent from openclaw.json using their actual workspace path
+    // All other agents from openclaw.json
     for (const agent of agentList) {
-      if (agent.id === 'main') continue; // already added above as 'workspace'
+      if (agent.id === 'main') continue;
 
       const rawPath = agent.workspace;
       if (!rawPath) continue;
@@ -84,18 +88,17 @@ export async function GET() {
       seen.add(resolvedPath);
 
       const agentInfo = getAgentInfo(resolvedPath);
-      const label = agent.name || agent.id;
 
       workspaces.push({
         id: agent.id,
-        name: label,
+        name: agentInfo?.name || agent.name || agent.id,
         emoji: agentInfo?.emoji || '🤖',
         path: resolvedPath,
-        agentName: agentInfo?.name || label,
+        agentName: agentInfo?.name || agent.name,
       });
     }
 
-    // Fallback: also scan OPENCLAW_DIR for workspace-* folders not already covered
+    // Fallback scan: workspace-* folders in OPENCLAW_DIR not already covered
     try {
       const entries = fs.readdirSync(OPENCLAW_DIR, { withFileTypes: true });
       for (const entry of entries) {
@@ -104,15 +107,17 @@ export async function GET() {
         if (seen.has(workspacePath)) continue;
         if (!fs.existsSync(workspacePath)) continue;
         seen.add(workspacePath);
-        const agentInfo = getAgentInfo(workspacePath);
+
         const agentId = entry.name.replace('workspace-', '');
-        const label = agentId.charAt(0).toUpperCase() + agentId.slice(1);
+        const agentInfo = getAgentInfo(workspacePath);
+        const agentFromConfig = agentMap.get(agentId);
+
         workspaces.push({
           id: entry.name,
-          name: label,
+          name: agentInfo?.name || agentFromConfig?.name || agentId,
           emoji: agentInfo?.emoji || '🤖',
           path: workspacePath,
-          agentName: agentInfo?.name || undefined,
+          agentName: agentInfo?.name || agentFromConfig?.name,
         });
       }
     } catch {
