@@ -5,15 +5,6 @@ import { useState, Suspense, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { AlertCircle, Loader2 } from "lucide-react";
 
-/**
- * Detects whether we are running inside an iOS standalone PWA.
- * navigator.standalone is a non-standard Safari property.
- */
-function isIOSStandalone(): boolean {
-  if (typeof window === "undefined") return false;
-  return !!(window.navigator as any).standalone;
-}
-
 function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -37,25 +28,20 @@ function LoginForm() {
 
       if (data.success) {
         const from = searchParams.get("from") || "/";
-
-        if (isIOSStandalone()) {
-          // In iOS PWA standalone mode, router.push + router.refresh() causes
-          // WebKit to break out of the PWA shell and open Safari.
-          // Using location.href keeps the navigation inside the standalone context.
-          window.location.href = from;
-        } else {
-          // Standard browser — safe to do a full navigation too,
-          // but location.href is fine here as well (no refresh() needed).
-          window.location.href = from;
-        }
+        // Hard reload to the destination — this is intentional.
+        // On first open of a freshly-installed PWA, the WebView is already
+        // in standalone mode and a location.replace() stays inside it.
+        // The shell-break only happens on SUBSEQUENT navigations mid-session.
+        // After a full reload the PWA shell is re-established correctly.
+        window.location.replace(from);
       } else {
         setError(data.error || "Invalid email or password.");
+        setLoading(false);
       }
     } catch {
       setError("Connection error. Check your network and retry.");
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   const inputStyle = {
@@ -84,17 +70,13 @@ function LoginForm() {
         boxShadow: "var(--shadow-xl)",
       }}
     >
-      {/* Header */}
       <div className="text-center mb-8">
         <div className="flex items-center justify-center gap-2 mb-3">
           <span className="text-3xl">🦞</span>
         </div>
         <h1
           className="text-2xl font-bold tracking-tight mb-1"
-          style={{
-            fontFamily: "var(--font-heading)",
-            color: "hsl(var(--foreground))",
-          }}
+          style={{ fontFamily: "var(--font-heading)", color: "hsl(var(--foreground))" }}
         >
           Mission Control
         </h1>
@@ -103,7 +85,6 @@ function LoginForm() {
         </p>
       </div>
 
-      {/* Form */}
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <input
