@@ -1,16 +1,25 @@
-import { NextResponse } from "next/server";
+// src/app/api/auth/logout/route.ts
+import { NextRequest, NextResponse } from "next/server";
+import { createServerClient } from "@supabase/ssr";
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   const response = NextResponse.json({ success: true });
-  
-  // Clear auth cookie
-  response.cookies.set("mc_auth", "", {
-    httpOnly: true,
-    secure: false,
-    sameSite: "lax",
-    maxAge: 0,
-    path: "/",
-  });
-  
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll: () => request.cookies.getAll(),
+        setAll: (cookies) => {
+          cookies.forEach(({ name, value, options }) => {
+            response.cookies.set(name, value, options);
+          });
+        },
+      },
+    }
+  );
+
+  await supabase.auth.signOut();
   return response;
 }

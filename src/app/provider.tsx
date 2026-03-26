@@ -49,14 +49,21 @@ export function useAuth() {
   return useContext(AuthContext);
 }
 
+// ─── Supabase browser client (singleton) ─────────────────
+
+// Created once outside the component so onAuthStateChange isn't re-subscribed
+// on every render, and so the same instance handles both the initial session
+// check and any subsequent SIGNED_IN / SIGNED_OUT events.
+const supabase = createBrowserClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
+
 // ─── Providers ────────────────────────────────────────────
 
 export function Providers({ children }: { children: React.ReactNode }) {
   // ── Theme state ───────────────────────────────────────
   const [themeId, setThemeIdState] = useState<string>(defaultThemeId);
-
-  // "light" as interim default — provider overwrites immediately on mount
-  // from localStorage/cookie before first paint completes
   const [themeType, setThemeType] = useState<"light" | "dark">("light");
   const [availableThemes, setAvailableThemes] = useState<string[]>([]);
   const [mounted, setMounted] = useState(false);
@@ -72,12 +79,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
     }
   }, [themeId]);
 
-  // Wired to smoothThemeToggle (with element) or transitionTheme (no element)
   const toggleTheme = useCallback(async (element?: HTMLElement) => {
     const themeChangeCallback = () => {
       setThemeType((prev) => {
         const next = prev === "light" ? "dark" : "light";
-        // Write to BOTH keys so old and new code can read it
         setCookie("theme", next, { path: "/", maxAge: 31536000 });
         localStorage.setItem("theme", next);
         return next;
@@ -112,15 +117,12 @@ export function Providers({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Load available themes on mount
   useEffect(() => {
     getAvailableThemeIds()
       .then(setAvailableThemes)
       .catch(() => setAvailableThemes([defaultThemeId]));
   }, []);
 
-  // Hydrate saved preferences on mount
-  // Reads "theme" key (not "themeType") to match what toggleTheme writes
   useEffect(() => {
     setMounted(true);
 
@@ -131,7 +133,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
       });
     }
 
-    // Read "theme" key — consistent with what toggleTheme saves
     const savedType =
       localStorage.getItem("theme") ||
       getCookie("theme");
@@ -139,13 +140,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
     if (savedType === "light" || savedType === "dark") {
       setThemeType(savedType);
     } else {
-      // No saved preference — fall back to system
       const systemDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
       setThemeType(systemDark ? "dark" : "light");
     }
   }, []);
 
-  // Apply CSS variables + class to <html> on theme or mode change
   useEffect(() => {
     if (!mounted || availableThemes.length === 0) return;
 
@@ -168,18 +167,28 @@ export function Providers({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const supabase = createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
-
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setLoading(false);
+    // getUser() validates against the server (reads the actual auth cookie)
+    // rather than trusting whatever is in localStorage, which means it correctly
+    // reflects the session set by signInWithPassword on the server side.
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) {
+        // Session may not be directly available from getUser(), so also
+        // call getSession() to hydrate the session object for consumers.
+        supabase.auth.getSession().then(({ data: sessionData }) => {
+          setSession(sessionData.session);
+          setLoading(false);
+        });
+      } else {
+        setSession(null);
+        setLoading(false);
+      }
     });
 
+    // onAuthStateChange fires for SIGNED_IN, SIGNED_OUT, TOKEN_REFRESHED, etc.
+    // This keeps the client in sync after login/logout without a page reload.
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
+      setLoading(false);
     });
 
     return () => listener.subscription.unsubscribe();

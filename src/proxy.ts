@@ -1,24 +1,9 @@
 // src/proxy.ts
 import { type NextRequest, NextResponse } from "next/server";
-import { middleware as supabaseMiddleware } from "@/utils/supabase/middleware";
+import { createServerClient } from "@supabase/ssr";
 
 const PUBLIC_ROUTES = new Set(["/login"]);
 const PUBLIC_API_PREFIXES = ["/api/auth/", "/api/health"];
-
-async function getSessionVersion(): Promise<string> {
-  const secret = process.env.AUTH_SECRET || "";
-  const encoded = new TextEncoder().encode(secret);
-  const hashBuffer = await crypto.subtle.digest("SHA-256", encoded);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("").slice(0, 8);
-}
-
-async function isAuthenticated(request: NextRequest): Promise<boolean> {
-  const token = request.cookies.get("mc_auth")?.value;
-  if (!token) return false;
-  const version = await getSessionVersion();
-  return token.startsWith(`mc-${version}-`);
-}
 
 function noCache(response: NextResponse): NextResponse {
   response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
@@ -33,7 +18,28 @@ export async function proxy(request: NextRequest) {
   if (PUBLIC_ROUTES.has(pathname)) return NextResponse.next();
   if (PUBLIC_API_PREFIXES.some((p) => pathname.startsWith(p))) return NextResponse.next();
 
-  if (!(await isAuthenticated(request))) {
+  // Build response early so Supabase SSR can refresh session cookies
+  let response = NextResponse.next({ request });
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll: () => request.cookies.getAll(),
+        setAll: (cookies) => {
+          cookies.forEach(({ name, value, options }) => {
+            request.cookies.set(name, value);
+            response.cookies.set(name, value, options);
+          });
+        },
+      },
+    }
+  );
+
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
     if (pathname.startsWith("/api/")) {
       return NextResponse.json(
         { error: "Unauthorized", message: "Authentication required" },
@@ -45,7 +51,6 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  const response = await supabaseMiddleware(request);
   return noCache(response);
 }
 
